@@ -1,0 +1,68 @@
+/* layout */
+.grid { display: grid; gap: 20px; }
+.sheet { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); }
+@media (min-width: 900px) {
+  .app { padding: 28px 32px 72px; }
+  .grid { grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); gap: 28px; align-items: start; }
+}
+
+/* summary sheet */
+.summary { overflow: hidden; }
+.savings { padding: 24px 24px 26px; }
+.savings-head { display: flex; align-items: center; justify-content: space-between; margin-right: -8px; }
+.label { font-size: 13px; font-weight: 700; color: var(--muted); letter-spacing: .04em; }
+.savings-amount {
+  font-size: clamp(40px, 9vw, 56px); font-weight: 800; line-height: 1.15;
+  letter-spacing: -.02em; margin: 2px 0 18px; font-variant-numeric: tabular-nums;
+}
+.bar { display: flex; height: 10px; border-radius: 999px; background: var(--line); overflow: hidden; }
+.bar > span { display: block; height: 100%; width: 0; transition: width .7s cubic-bezier(.2, .8, .2, 1); }
+.bar > .cash { background: var(--accent); }
+.bar > .pend { background: var(--accent); opacity: .35; }
+.pending { margin: -6px 0 16px; font-size: 14px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.pending b { color: var(--ink); font-weight: 700; }
+.bar-meta { display: flex; justify-content: space-between; gap: 12px; margin-top: 8px; font-size: 14px; color: var(--muted); }
+.bar-meta b { color: var(--ink); font-weight: 800; }
+.facts { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 22px; }
+.facts dt { font-size: 13px; color: var(--muted); font-weight: 500; }
+.facts dd { font-weight: 700; font-variant-numeric: tabular-nums; }
+.facts dd.sub { font-size: 14px; font-weight: 400; color: var(--muted); }
+
+/* required hours */
+.need { padding: 24px; background: var(--accent-soft); border-top: 1px solid var(--accent-line); }
+.need-title { font-size: 13px; font-weight: 700; color: var(--muted); letter-spacing: .04em; }
+.need-name { font-size: 15px; font-weight: 700; }
+.need-hero { margin: 14px 0 22px; }
+.need-num { display: flex; align-items: baseline; gap: 8px; line-height: 1.05; margin-top: 6px; }
+.need-num .n { font-weight: 800; letter-spacing: -.04em; font-variant-numeric: tabular-nums; }
+.need-num .u { font-size: 18px; font-weight: 700; }
+.need-hero .n { font-size: clamp(68px, 19vw, 108px); }
+.need-pair .n { font-size: clamp(32px, 8vw, 42px); }
+.need-sub { margin-top: 8px; font-size: 14px; color: var(--muted); line-height: 1.5; }
+.need-pair { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; padding-top: 18px; border-top: 1px solid var(--accent-line); }
+.note { margin-top: 18px; font-size: 13px; color: var(--muted); line-height: 1.7; }
+.need-msg { font-size: 22px; font-weight: 800; line-height: 1.4; margin-top: 10px; }
+
+/* ledger (record + history) */
+.ledger-form { padding: 24px; }
+.section-title { font-size: 17px; font-weight: 800; margin-bottom: 16px; }
+.stack { display: grid; gap: 18px; }
+.field { display: grid; gap: 6px; }
+.field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+label { font-size: 14px; font-weight: 700; }
+input {
+  font: inherit; color: inherit; width: 100%; min-height: 48px;
+  background: var(--field); border: 1px solid var(--line); border-radius: 12px; padding: 10px 14px;
+}
+input:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; border-color: var(--accent); }
+input[type=number] { -moz-appearance: textfield; appearance: textfield; font-variant-numeric: tabular-nums; }
+input[type=number]::-webkit-outer-spin-button,
+input[type=number]::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.input-wrap { display: flex; align-items: center; gap: 8px; }
+.unit { color: var(--muted); font-size: 14px; white-space: nowrap; }
+.preview { min-height: 1.7em; font-weight: 700; color: var(--accent); font-variant-numeric: tabular-nums; }
+.error { min-height: 0; font-size: 14px; color: var(--danger); font-weight: 500; }
+.error:empty { display: none; }
+.hint { font-size: 13px; color: var(--muted); line-height: 1.7; }
+.actions { display: flex; gap: 10px; }
+.actions .btn.primary { flex: 1; }

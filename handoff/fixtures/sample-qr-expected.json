@@ -1,0 +1,55 @@
+{
+  "goal": {
+    "baseSavings": 50000,
+    "target": 300000,
+    "deadline": "2027-03-31",
+    "hourlyWage": 1200,
+    "closingDay": 31,
+    "payDay": 25,
+    "createdAt": "2026-08-01T00:00:00.000Z"
+  },
+  "shifts": [
+    {
+      "date": "2026-08-20",
+      "minutes": 360,
+      "wage": 1100,
+      "earned": 6600
+    },
+    {
+      "date": "2026-09-10",
+      "minutes": 300,
+      "wage": 1100,
+      "earned": 5500
+    },
+    {
+      "date": "2026-09-30",
+      "minutes": 240,
+      "wage": 1100,
+      "earned": 4400
+    },
+    {
+      "date": "2026-10-01",
+      "minutes": 330,
+      "wage": 1100,
+      "earned": 6050
+    },
+    {
+      "date": "2026-10-01",
+      "minutes": 60,
+      "wage": 1100,
+      "earned": 1100
+    },
+    {
+      "date": "2026-10-02",
+      "minutes": 300,
+      "wage": 1200,
+      "earned": 6000
+    }
+  ],
+  "adjustments": [
+    {
+      "date": "2026-09-15",
+      "delta": -8000
+    }
+  ]
+}
