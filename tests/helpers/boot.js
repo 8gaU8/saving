@@ -21,7 +21,7 @@ export async function boot(state, now = FIXED, before) {
   vi.useFakeTimers({ now, toFake: ['Date'] });
   const w = new JSDOM(html, { url: 'https://x.example/', pretendToBeVisual: true }).window;
   w.HTMLDialogElement.prototype.showModal = function () { this.setAttribute('open', ''); };
-  w.HTMLDialogElement.prototype.close = function () { this.removeAttribute('open'); this.dispatchEvent(new w.Event('close')); };
+  w.HTMLDialogElement.prototype.close = function () { if (!this.hasAttribute('open')) return; this.removeAttribute('open'); this.dispatchEvent(new w.Event('close')); };
   w.HTMLElement.prototype.scrollIntoView = () => {};
   w.scrollTo = () => {};
   w.matchMedia = () => ({ matches: false });
