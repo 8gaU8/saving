@@ -1,0 +1,1141 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>貯金ペース</title>
+<meta name="description" content="目標の貯金額に届くために、今週・今月・目標日までに何時間働けばいいかを計算します。">
+<meta name="theme-color" content="#F1F5F3" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0F1715" media="(prefers-color-scheme: dark)">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%230E7C66'/%3E%3Cpath d='M8 21l5-6 4 3 7-9' fill='none' stroke='white' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;700;800&family=Zen+Kaku+Gothic+New:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  color-scheme: light dark;
+  --bg: #F1F5F3;
+  --surface: #FFFFFF;
+  --ink: #13231E;
+  --muted: #5B6B66;
+  --line: #DCE4E0;
+  --field: #F7FAF9;
+  --accent: #0E7C66;
+  --accent-ink: #FFFFFF;
+  --accent-soft: #E0F2EC;
+  --accent-line: rgba(14, 124, 102, .22);
+  --danger: #B3402A;
+  --danger-ink: #FFFFFF;
+  --radius: 16px;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0F1715;
+    --surface: #16211E;
+    --ink: #E7F0EC;
+    --muted: #93A59E;
+    --line: #26352F;
+    --field: #111B18;
+    --accent: #5CC9A7;
+    --accent-ink: #06231B;
+    --accent-soft: #1A342C;
+    --accent-line: rgba(92, 201, 167, .26);
+    --danger: #F08A73;
+    --danger-ink: #2B0E07;
+  }
+}
+
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: "Manrope", "Zen Kaku Gothic New", "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Yu Gothic", Meiryo, sans-serif;
+  font-size: 16px;
+  line-height: 1.7;
+  -webkit-font-smoothing: antialiased;
+  padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+}
+h1, h2, h3, p, dl, dd, ul { margin: 0; }
+
+.app { max-width: 1040px; margin: 0 auto; padding: 16px 16px 56px; }
+
+/* header */
+.top { display: flex; align-items: center; justify-content: space-between; padding: 8px 0 20px; }
+.brand { display: flex; align-items: center; gap: 10px; font-size: 18px; font-weight: 800; letter-spacing: .02em; }
+.logo { width: 26px; height: 26px; flex: none; }
+.logo rect { fill: var(--accent); }
+.logo path { stroke: var(--accent-ink); }
+
+/* buttons */
+.btn {
+  font: inherit; font-weight: 700;
+  min-height: 48px; padding: 0 22px;
+  border-radius: 12px; border: 1px solid transparent;
+  cursor: pointer; background: transparent; color: var(--ink);
+}
+.btn.primary { background: var(--accent); color: var(--accent-ink); }
+.btn.primary:hover { filter: brightness(1.06); }
+.btn.ghost { border-color: var(--line); }
+.btn.ghost:hover { background: var(--field); }
+.btn.danger { border-color: var(--danger); color: var(--danger); }
+.btn.danger-solid { background: var(--danger); color: var(--danger-ink); }
+.btn-text {
+  font: inherit; font-size: 14px; font-weight: 700;
+  color: var(--accent); background: none; border: 0;
+  padding: 8px 8px; min-height: 40px; border-radius: 8px; cursor: pointer;
+}
+.btn-text:hover { text-decoration: underline; }
+.btn-text.danger { color: var(--danger); }
+.btn:focus-visible, .btn-text:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* layout */
+.grid { display: grid; gap: 20px; }
+.sheet { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); }
+@media (min-width: 900px) {
+  .app { padding: 28px 32px 72px; }
+  .grid { grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); gap: 28px; align-items: start; }
+}
+
+/* summary sheet */
+.summary { overflow: hidden; }
+.savings { padding: 24px 24px 26px; }
+.savings-head { display: flex; align-items: center; justify-content: space-between; margin-right: -8px; }
+.label { font-size: 13px; font-weight: 700; color: var(--muted); letter-spacing: .04em; }
+.savings-amount {
+  font-size: clamp(40px, 9vw, 56px); font-weight: 800; line-height: 1.15;
+  letter-spacing: -.02em; margin: 2px 0 18px; font-variant-numeric: tabular-nums;
+}
+.bar { display: flex; height: 10px; border-radius: 999px; background: var(--line); overflow: hidden; }
+.bar > span { display: block; height: 100%; width: 0; transition: width .7s cubic-bezier(.2, .8, .2, 1); }
+.bar > .cash { background: var(--accent); }
+.bar > .pend { background: var(--accent); opacity: .35; }
+.pending { margin: -6px 0 16px; font-size: 14px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.pending b { color: var(--ink); font-weight: 700; }
+.bar-meta { display: flex; justify-content: space-between; gap: 12px; margin-top: 8px; font-size: 14px; color: var(--muted); }
+.bar-meta b { color: var(--ink); font-weight: 800; }
+.facts { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 22px; }
+.facts dt { font-size: 13px; color: var(--muted); font-weight: 500; }
+.facts dd { font-weight: 700; font-variant-numeric: tabular-nums; }
+.facts dd.sub { font-size: 14px; font-weight: 400; color: var(--muted); }
+
+/* required hours */
+.need { padding: 24px; background: var(--accent-soft); border-top: 1px solid var(--accent-line); }
+.need-title { font-size: 13px; font-weight: 700; color: var(--muted); letter-spacing: .04em; }
+.need-name { font-size: 15px; font-weight: 700; }
+.need-hero { margin: 14px 0 22px; }
+.need-num { display: flex; align-items: baseline; gap: 8px; line-height: 1.05; margin-top: 6px; }
+.need-num .n { font-weight: 800; letter-spacing: -.04em; font-variant-numeric: tabular-nums; }
+.need-num .u { font-size: 18px; font-weight: 700; }
+.need-hero .n { font-size: clamp(68px, 19vw, 108px); }
+.need-pair .n { font-size: clamp(32px, 8vw, 42px); }
+.need-sub { margin-top: 8px; font-size: 14px; color: var(--muted); line-height: 1.5; }
+.need-pair { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; padding-top: 18px; border-top: 1px solid var(--accent-line); }
+.note { margin-top: 18px; font-size: 13px; color: var(--muted); line-height: 1.7; }
+.need-msg { font-size: 22px; font-weight: 800; line-height: 1.4; margin-top: 10px; }
+
+/* ledger (record + history) */
+.ledger-form { padding: 24px; }
+.section-title { font-size: 17px; font-weight: 800; margin-bottom: 16px; }
+.stack { display: grid; gap: 18px; }
+.field { display: grid; gap: 6px; }
+.field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+label { font-size: 14px; font-weight: 700; }
+input {
+  font: inherit; color: inherit; width: 100%; min-height: 48px;
+  background: var(--field); border: 1px solid var(--line); border-radius: 12px; padding: 10px 14px;
+}
+input:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; border-color: var(--accent); }
+input[type=number] { -moz-appearance: textfield; appearance: textfield; font-variant-numeric: tabular-nums; }
+input[type=number]::-webkit-outer-spin-button,
+input[type=number]::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.input-wrap { display: flex; align-items: center; gap: 8px; }
+.unit { color: var(--muted); font-size: 14px; white-space: nowrap; }
+.preview { min-height: 1.7em; font-weight: 700; color: var(--accent); font-variant-numeric: tabular-nums; }
+.error { min-height: 0; font-size: 14px; color: var(--danger); font-weight: 500; }
+.error:empty { display: none; }
+.hint { font-size: 13px; color: var(--muted); line-height: 1.7; }
+.actions { display: flex; gap: 10px; }
+.actions .btn.primary { flex: 1; }
+
+.history { border-top: 1px solid var(--line); padding: 20px 24px 12px; }
+.history-head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 6px 16px; margin-bottom: 4px; }
+.history-head .section-title { margin: 0; }
+.worked { display: flex; gap: 14px; font-size: 13px; color: var(--muted); }
+.worked b { color: var(--ink); font-weight: 700; }
+.list { list-style: none; padding: 0; }
+.item { display: grid; grid-template-columns: 1fr auto; column-gap: 12px; padding: 14px 0; border-bottom: 1px solid var(--line); }
+.item:last-child { border-bottom: 0; }
+.item-date { font-weight: 700; }
+.item-pay { margin-left: 8px; font-size: 12px; font-weight: 500; color: var(--muted); }
+.item-amt { font-weight: 800; text-align: right; font-variant-numeric: tabular-nums; }
+.item-detail { font-size: 14px; color: var(--muted); align-self: center; }
+.item-actions { display: flex; justify-content: flex-end; margin-right: -8px; }
+.pos { color: var(--accent); }
+.neg { color: var(--danger); }
+.empty { padding: 18px 0 12px; font-size: 14px; color: var(--muted); }
+.more { display: block; margin: 4px auto 8px; }
+
+/* setup */
+.setup { max-width: 520px; margin: 0 auto; }
+.setup .sheet { padding: 28px 24px; }
+.setup-title { font-size: 24px; font-weight: 800; line-height: 1.4; }
+.lead { margin: 8px 0 24px; color: var(--muted); font-size: 15px; }
+.restore { margin-top: 24px; padding-top: 18px; border-top: 1px solid var(--line); display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; font-size: 14px; color: var(--muted); }
+
+/* banner, footer, toast */
+.banner { margin-bottom: 16px; padding: 12px 16px; border-radius: 12px; border: 1px solid var(--danger); color: var(--danger); font-size: 14px; }
+.foot { margin-top: 28px; font-size: 12px; color: var(--muted); line-height: 1.7; }
+.toast {
+  position: fixed; left: 50%; bottom: calc(20px + env(safe-area-inset-bottom));
+  transform: translate(-50%, 16px); opacity: 0; pointer-events: none;
+  max-width: calc(100vw - 32px); padding: 12px 18px; border-radius: 12px;
+  background: var(--ink); color: var(--bg); font-size: 14px; font-weight: 500;
+  transition: opacity .25s, transform .25s; z-index: 1000;
+}
+.toast.show { opacity: 1; transform: translate(-50%, 0); }
+.toast.err { background: var(--danger); color: var(--danger-ink); }
+
+/* dialogs */
+dialog {
+  width: min(440px, calc(100vw - 32px)); max-height: calc(100dvh - 32px); overflow: auto;
+  padding: 0; border: 1px solid var(--line); border-radius: 18px;
+  background: var(--surface); color: var(--ink);
+}
+dialog::backdrop { background: rgba(8, 16, 13, .5); }
+.dlg { padding: 22px; }
+.dlg h2 { font-size: 18px; font-weight: 800; }
+.dlg h3 { font-size: 15px; font-weight: 800; }
+.dlg-head { display: flex; align-items: center; justify-content: space-between; margin: 0 -8px 16px 0; }
+.dlg .actions { justify-content: flex-end; margin-top: 4px; }
+.dlg .muted { color: var(--muted); font-size: 14px; }
+.sect { margin-top: 26px; padding-top: 22px; border-top: 1px solid var(--line); }
+.btn-row { display: flex; flex-wrap: wrap; gap: 10px; }
+.btn-row .btn { flex: 1 1 140px; }
+
+@media (prefers-reduced-motion: reduce) {
+  * { transition: none !important; animation: none !important; }
+}
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="top">
+    <h1 class="brand">
+      <svg class="logo" viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="8"/><path d="M8 21l5-6 4 3 7-9" fill="none" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      貯金ペース
+    </h1>
+    <button type="button" class="btn-text" id="openSettings" hidden>設定</button>
+  </header>
+
+  <p class="banner" id="storageWarn" role="alert" hidden>このブラウザでは保存できません（プライベートモードなど）。ページを閉じると記録が消えるため、こまめにエクスポートしてください。</p>
+
+  <noscript><p class="banner">このアプリの利用にはJavaScriptが必要です。</p></noscript>
+
+  <!-- 初回設定 -->
+  <main id="setupView" class="setup" hidden>
+    <section class="sheet">
+      <h2 class="setup-title">目標を決めましょう</h2>
+      <p class="lead">4つ入力すると、今週・今月・目標日までに必要な勤務時間を計算します。</p>
+      <form id="setupForm" class="stack" novalidate>
+        <div class="field">
+          <label for="sCurrent">いまの貯金</label>
+          <div class="input-wrap"><input id="sCurrent" type="number" inputmode="numeric" min="0" step="any" autocomplete="off" placeholder="例 50000"><span class="unit">円</span></div>
+        </div>
+        <div class="field">
+          <label for="sTarget">目標金額</label>
+          <div class="input-wrap"><input id="sTarget" type="number" inputmode="numeric" min="1" step="any" autocomplete="off" placeholder="例 300000"><span class="unit">円</span></div>
+        </div>
+        <div class="field">
+          <label for="sDeadline">目標を達成する日</label>
+          <input id="sDeadline" type="date">
+        </div>
+        <div class="field">
+          <label for="sWage">時給</label>
+          <div class="input-wrap"><input id="sWage" type="number" inputmode="decimal" min="1" step="any" autocomplete="off" placeholder="例 1200"><span class="unit">円</span></div>
+          <p class="hint">手取りで考えたい場合は、手取り換算の時給を入力してください。</p>
+        </div>
+        <div class="field">
+          <div class="field-row">
+            <div class="field">
+              <label for="sClosing">給与の締め日</label>
+              <div class="input-wrap"><input id="sClosing" type="number" inputmode="numeric" min="1" max="31" step="1" value="31" autocomplete="off"><span class="unit">日締め</span></div>
+            </div>
+            <div class="field">
+              <label for="sPayDay">支払日（翌月）</label>
+              <div class="input-wrap"><input id="sPayDay" type="number" inputmode="numeric" min="1" max="31" step="1" value="25" autocomplete="off"><span class="unit">日払い</span></div>
+            </div>
+          </div>
+          <p class="hint">月末締めは31と入力します。働いた分は入金日まで貯金に入らず、目標日までに入金されない勤務は計算に含めません。</p>
+        </div>
+        <p class="error" id="setupError" role="alert"></p>
+        <button type="submit" class="btn primary">はじめる</button>
+      </form>
+      <div class="restore">
+        <span>別の端末のデータを使う場合</span>
+        <button type="button" class="btn-text" id="setupImport">JSONを読み込む</button>
+      </div>
+    </section>
+  </main>
+
+  <!-- メイン画面 -->
+  <main id="mainView" class="grid" hidden>
+    <section class="sheet summary" aria-label="貯金の状況">
+      <div class="savings">
+        <div class="savings-head">
+          <p class="label">いまの貯金</p>
+          <button type="button" class="btn-text" id="editSavings">貯金額を修正</button>
+        </div>
+        <p class="savings-amount" id="savingsAmount">¥0</p>
+        <p class="pending" id="pendingLine" hidden></p>
+        <div class="bar" id="bar" role="progressbar" aria-label="目標の達成率" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><span class="cash" id="barFill"></span><span class="pend" id="barPending"></span></div>
+        <div class="bar-meta"><b id="barPct">0%</b><span id="barTarget">目標 ¥0</span></div>
+        <dl class="facts">
+          <div><dt>目標まで</dt><dd id="factRemain">¥0</dd></div>
+          <div><dt>目標日</dt><dd id="factDeadline">—</dd><dd class="sub" id="factDeadlineSub"></dd></div>
+        </dl>
+      </div>
+      <div class="need" aria-live="polite">
+        <h2 class="need-title">目標までに必要な勤務時間</h2>
+        <div id="needBody"></div>
+      </div>
+    </section>
+
+    <section class="sheet" aria-label="勤務の記録と履歴">
+      <div class="ledger-form">
+        <h2 class="section-title" id="formTitle">勤務を記録</h2>
+        <form id="shiftForm" class="stack" novalidate>
+          <div class="field">
+            <label for="shiftDate">日付</label>
+            <input id="shiftDate" type="date">
+          </div>
+          <div class="field-row">
+            <div class="field">
+              <label for="shiftH">時間</label>
+              <div class="input-wrap"><input id="shiftH" type="number" inputmode="decimal" min="0" max="24" step="any" placeholder="0" autocomplete="off"><span class="unit">時間</span></div>
+            </div>
+            <div class="field">
+              <label for="shiftM">分</label>
+              <div class="input-wrap"><input id="shiftM" type="number" inputmode="numeric" min="0" max="59" step="1" placeholder="0" autocomplete="off"><span class="unit">分</span></div>
+            </div>
+          </div>
+          <p class="preview" id="shiftPreview" aria-live="polite"></p>
+          <p class="error" id="shiftError" role="alert"></p>
+          <div class="actions">
+            <button type="button" class="btn ghost" id="shiftCancel" hidden>キャンセル</button>
+            <button type="submit" class="btn primary" id="shiftSubmit">記録する</button>
+          </div>
+        </form>
+      </div>
+      <div class="history">
+        <div class="history-head">
+          <h2 class="section-title">履歴</h2>
+          <div class="worked" id="workedStats"></div>
+        </div>
+        <ul class="list" id="historyList"></ul>
+        <button type="button" class="btn-text more" id="moreBtn" hidden>さらに表示</button>
+      </div>
+    </section>
+  </main>
+
+  <p class="foot">データはこの端末のブラウザ（localStorage）に保存されます。ブラウザの閲覧データを消すと記録も消えるため、設定からときどきエクスポートしておくと安心です。</p>
+</div>
+
+<!-- 貯金額の修正 -->
+<dialog id="dlgSavings" aria-labelledby="svTitle">
+  <form id="savingsForm" class="dlg stack" novalidate>
+    <div>
+      <h2 id="svTitle">貯金額を修正</h2>
+      <p class="muted">実際の貯金額に合わせて書き換えます。差額は履歴に残ります。</p>
+    </div>
+    <div class="field">
+      <label for="svInput">いまの貯金</label>
+      <div class="input-wrap"><input id="svInput" type="number" inputmode="numeric" min="0" step="any" autocomplete="off"><span class="unit">円</span></div>
+    </div>
+    <p class="error" id="svError" role="alert"></p>
+    <div class="actions">
+      <button type="button" class="btn ghost" data-close>キャンセル</button>
+      <button type="submit" class="btn primary">保存</button>
+    </div>
+  </form>
+</dialog>
+
+<!-- 設定 -->
+<dialog id="dlgSettings" aria-labelledby="stTitle">
+  <div class="dlg">
+    <div class="dlg-head">
+      <h2 id="stTitle">設定</h2>
+      <button type="button" class="btn-text" data-close>閉じる</button>
+    </div>
+    <form id="goalForm" class="stack" novalidate>
+      <h3>目標</h3>
+      <div class="field">
+        <label for="gTarget">目標金額</label>
+        <div class="input-wrap"><input id="gTarget" type="number" inputmode="numeric" min="1" step="any" autocomplete="off"><span class="unit">円</span></div>
+      </div>
+      <div class="field">
+        <label for="gDeadline">目標を達成する日</label>
+        <input id="gDeadline" type="date">
+      </div>
+      <div class="field">
+        <label for="gWage">時給</label>
+        <div class="input-wrap"><input id="gWage" type="number" inputmode="decimal" min="1" step="any" autocomplete="off"><span class="unit">円</span></div>
+        <p class="hint">時給を変えても、記録済みの勤務の金額は変わりません。</p>
+      </div>
+      <div class="field">
+        <div class="field-row">
+          <div class="field">
+            <label for="gClosing">給与の締め日</label>
+            <div class="input-wrap"><input id="gClosing" type="number" inputmode="numeric" min="1" max="31" step="1" autocomplete="off"><span class="unit">日締め</span></div>
+          </div>
+          <div class="field">
+            <label for="gPayDay">支払日（翌月）</label>
+            <div class="input-wrap"><input id="gPayDay" type="number" inputmode="numeric" min="1" max="31" step="1" autocomplete="off"><span class="unit">日払い</span></div>
+          </div>
+        </div>
+        <p class="hint">月末締めは31と入力します。</p>
+      </div>
+      <p class="error" id="goalError" role="alert"></p>
+      <button type="submit" class="btn primary">目標を保存</button>
+    </form>
+    <section class="sect stack">
+      <h3>データの書き出しと読み込み</h3>
+      <p class="hint">目標・勤務履歴・貯金額の修正をJSONファイルにまとめます。別の端末で読み込むと、同じ状態を再現できます。</p>
+      <div class="btn-row">
+        <button type="button" class="btn ghost" id="exportBtn">エクスポート</button>
+        <button type="button" class="btn ghost" id="importBtn">インポート</button>
+      </div>
+    </section>
+    <section class="sect stack">
+      <h3>すべて削除</h3>
+      <p class="hint">この端末に保存された目標と勤務履歴を消します。元に戻せません。</p>
+      <button type="button" class="btn danger" id="resetBtn">データを削除</button>
+    </section>
+  </div>
+</dialog>
+
+<!-- 確認 -->
+<dialog id="dlgConfirm" aria-labelledby="cfTitle">
+  <div class="dlg stack">
+    <div>
+      <h2 id="cfTitle"></h2>
+      <p class="muted" id="cfMsg" style="margin-top:6px"></p>
+    </div>
+    <div class="actions">
+      <button type="button" class="btn ghost" id="cfCancel">キャンセル</button>
+      <button type="button" class="btn primary" id="cfOk">OK</button>
+    </div>
+  </div>
+</dialog>
+
+<input type="file" id="fileInput" accept="application/json,.json" hidden>
+<div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+<script>
+(() => {
+  'use strict';
+
+  const STORAGE_KEY = 'savings-pace:v1';
+  const APP_ID = 'savings-pace';
+  const SCHEMA = 1;
+  const MAX_ROWS = 20000;
+  const PAGE_SIZE = 20;
+  const WEEKDAYS = ['日', '月', '火', '水', '木', '金', '土'];
+
+  const $ = (sel, root = document) => root.querySelector(sel);
+  const pad = (n) => String(n).padStart(2, '0');
+  const isNum = (x) => typeof x === 'number' && Number.isFinite(x);
+  const reducedMotion = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const newId = () => (crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(36) + Math.random().toString(36).slice(2, 10));
+
+  /* ---------- 日付 ---------- */
+  const dayNum = (y, m, d) => Math.floor(Date.UTC(y, m - 1, d) / 86400000);
+  function parseISO(s) {
+    const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(s));
+    if (!m) return null;
+    const y = +m[1], mo = +m[2], d = +m[3];
+    const t = new Date(Date.UTC(y, mo - 1, d));
+    if (t.getUTCFullYear() !== y || t.getUTCMonth() !== mo - 1 || t.getUTCDate() !== d) return null;
+    return { y, m: mo, d };
+  }
+  const isoDay = (s) => { const p = parseISO(s); return p ? dayNum(p.y, p.m, p.d) : null; };
+  const partsOfDay = (n) => {
+    const t = new Date(n * 86400000);
+    return { y: t.getUTCFullYear(), m: t.getUTCMonth() + 1, d: t.getUTCDate(), dow: t.getUTCDay() };
+  };
+  const now = () => { const t = new Date(); return { y: t.getFullYear(), m: t.getMonth() + 1, d: t.getDate(), dow: t.getDay() }; };
+  const todayISO = () => { const t = now(); return `${t.y}-${pad(t.m)}-${pad(t.d)}`; };
+  const todayDay = () => { const t = now(); return dayNum(t.y, t.m, t.d); };
+  const monthEndDay = (y, m) => dayNum(y, m + 1, 0);
+  const dim = (y, m) => new Date(Date.UTC(y, m, 0)).getUTCDate(); // その月の日数
+  const addMonth = (y, m, k) => { const t = y * 12 + (m - 1) + k; return { y: Math.floor(t / 12), m: (t % 12) + 1 }; };
+
+  /* ---------- 給与サイクル（N日締め・翌月M日払い） ---------- */
+  const DEFAULT_CLOSING = 31; // 31 = 月末締め
+  const DEFAULT_PAYDAY = 25;
+  // 勤務日 → 入金日（dayNum）
+  function payDayOf(dateISO, g) {
+    const p = parseISO(dateISO);
+    const c = Math.min(g.closingDay, dim(p.y, p.m));
+    const cm = p.d <= c ? { y: p.y, m: p.m } : addMonth(p.y, p.m, 1);
+    const pm = addMonth(cm.y, cm.m, 1);
+    return dayNum(pm.y, pm.m, Math.min(g.payDay, dim(pm.y, pm.m)));
+  }
+  // 目標日までに入金される最後の勤務日（dayNum）。なければ null
+  function lastCountedWorkDay(deadline, g) {
+    const dp = partsOfDay(deadline);
+    for (let k = 0; k <= 3; k++) {
+      const cm = addMonth(dp.y, dp.m, -k);
+      const closing = dayNum(cm.y, cm.m, Math.min(g.closingDay, dim(cm.y, cm.m)));
+      const pm = addMonth(cm.y, cm.m, 1);
+      const pay = dayNum(pm.y, pm.m, Math.min(g.payDay, dim(pm.y, pm.m)));
+      if (pay <= deadline) return closing;
+    }
+    return null;
+  }
+
+  /* ---------- 表示用フォーマット ---------- */
+  const yen = (n) => (n < 0 ? '−' : '') + '¥' + Math.abs(Math.round(n)).toLocaleString('ja-JP');
+  const ceil1 = (h) => Math.ceil(h * 10 - 1e-9) / 10;
+  const fmtH = (h) => { const v = ceil1(h); return Number.isInteger(v) ? String(v) : v.toFixed(1); };
+  const fmtHM = (min) => {
+    const h = Math.floor(min / 60), m = min % 60;
+    if (h && m) return `${h}時間${m}分`;
+    if (h) return `${h}時間`;
+    return `${m}分`;
+  };
+  const fmtDay = (n, withYear) => { const p = partsOfDay(n); return `${withYear ? p.y + '年' : ''}${p.m}月${p.d}日`; };
+  const fmtISO = (s) => {
+    const p = partsOfDay(isoDay(s));
+    return `${p.y !== now().y ? p.y + '年' : ''}${p.m}月${p.d}日（${WEEKDAYS[p.dow]}）`;
+  };
+
+  /* ---------- 状態 ---------- */
+  let state = null;
+  let editingId = null;
+  let historyLimit = PAGE_SIZE;
+  let storageOK = true;
+  let defaultDate = '';
+
+  const earnedOf = (minutes, wage) => Math.round(minutes * wage / 60);
+  // 貯金（入金済みの分）と入金待ちの内訳
+  function money(s) {
+    const g = s.goal, today = todayDay(), deadline = isoDay(g.deadline);
+    let cash = g.baseSavings + s.adjustments.reduce((a, x) => a + x.delta, 0);
+    let pending = 0, pendingCounted = 0, nextPay = null;
+    for (const x of s.shifts) {
+      const pd = payDayOf(x.date, g);
+      if (pd <= today) { cash += x.earned; continue; }
+      pending += x.earned;
+      if (pd <= deadline) pendingCounted += x.earned;
+      if (nextPay === null || pd < nextPay) nextPay = pd;
+    }
+    return { cash, pending, pendingCounted, nextPay };
+  }
+  const savingsNow = (s) => money(s).cash;
+
+  function normalizeState(o) {
+    const fail = (m) => { throw new Error(m); };
+    if (!o || typeof o !== 'object' || Array.isArray(o)) fail('ファイルの形式が正しくありません。');
+    if (o.app !== APP_ID) fail('このアプリで書き出したファイルではありません。');
+    if (o.schemaVersion !== SCHEMA) fail('対応していないバージョンのファイルです。');
+    const g = o.goal;
+    if (!g || typeof g !== 'object') fail('目標のデータがありません。');
+    if (!isNum(g.baseSavings) || g.baseSavings < 0) fail('貯金額のデータが正しくありません。');
+    if (!isNum(g.target) || g.target <= 0) fail('目標金額のデータが正しくありません。');
+    if (!parseISO(g.deadline)) fail('目標日のデータが正しくありません。');
+    if (!isNum(g.hourlyWage) || g.hourlyWage <= 0) fail('時給のデータが正しくありません。');
+    const validDay = (v) => Number.isInteger(v) && v >= 1 && v <= 31;
+    const closingDay = g.closingDay === undefined ? DEFAULT_CLOSING : g.closingDay;
+    const payDay = g.payDay === undefined ? DEFAULT_PAYDAY : g.payDay;
+    if (!validDay(closingDay)) fail('締め日のデータが正しくありません。');
+    if (!validDay(payDay)) fail('支払日のデータが正しくありません。');
+    if (!Array.isArray(o.shifts)) fail('勤務履歴のデータが正しくありません。');
+    const adjIn = o.adjustments === undefined ? [] : o.adjustments;
+    if (!Array.isArray(adjIn)) fail('貯金額の修正履歴が正しくありません。');
+    if (o.shifts.length > MAX_ROWS || adjIn.length > MAX_ROWS) fail('データが大きすぎます。');
+
+    const used = new Set();
+    const uid = (v) => {
+      let id = typeof v === 'string' ? v.replace(/[^\w-]/g, '').slice(0, 64) : '';
+      if (!id || used.has(id)) id = newId();
+      used.add(id);
+      return id;
+    };
+    const str = (v) => (typeof v === 'string' ? v.slice(0, 40) : '');
+
+    const shifts = o.shifts.map((s, i) => {
+      if (!s || typeof s !== 'object') fail(`勤務履歴の${i + 1}件目が正しくありません。`);
+      if (!parseISO(s.date)) fail(`勤務履歴の${i + 1}件目の日付が正しくありません。`);
+      if (!Number.isInteger(s.minutes) || s.minutes < 1 || s.minutes > 1440) fail(`勤務履歴の${i + 1}件目の勤務時間が正しくありません。`);
+      const wage = isNum(s.wage) && s.wage >= 0 ? s.wage : g.hourlyWage;
+      const earned = isNum(s.earned) ? Math.round(s.earned) : earnedOf(s.minutes, wage);
+      return { id: uid(s.id), date: s.date, minutes: s.minutes, wage, earned, at: str(s.at) };
+    });
+    const adjustments = adjIn.map((a, i) => {
+      if (!a || typeof a !== 'object' || !parseISO(a.date) || !isNum(a.delta)) fail(`貯金額の修正履歴の${i + 1}件目が正しくありません。`);
+      return { id: uid(a.id), date: a.date, delta: Math.round(a.delta), at: str(a.at) };
+    });
+
+    return {
+      app: APP_ID,
+      schemaVersion: SCHEMA,
+      goal: {
+        baseSavings: Math.round(g.baseSavings),
+        target: Math.round(g.target),
+        deadline: g.deadline,
+        hourlyWage: g.hourlyWage,
+        closingDay,
+        payDay,
+        createdAt: str(g.createdAt)
+      },
+      shifts,
+      adjustments
+    };
+  }
+
+  function load() {
+    let raw = null;
+    try { raw = localStorage.getItem(STORAGE_KEY); } catch (e) { storageOK = false; return null; }
+    if (!raw) return null;
+    try {
+      return normalizeState(JSON.parse(raw));
+    } catch (e) {
+      try { localStorage.setItem(STORAGE_KEY + ':broken', raw); } catch (_) { /* ignore */ }
+      return null;
+    }
+  }
+  function save() {
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); storageOK = true; }
+    catch (e) { storageOK = false; }
+    $('#storageWarn').hidden = storageOK;
+  }
+
+  /* ---------- 計算 ---------- */
+  function compute() {
+    const g = state.goal;
+    const mo = money(state);
+    const savings = mo.cash;
+    // 入金待ちのうち、目標日までに入金される分は「確定した収入」として差し引く
+    const remaining = Math.max(0, g.target - savings - mo.pendingCounted);
+    const remainingHours = remaining / g.hourlyWage;
+    const t = now();
+    const today = dayNum(t.y, t.m, t.d);
+    const iso = todayISO();
+    const loggedToday = state.shifts.some((s) => s.date === iso);
+    const start = loggedToday ? today + 1 : today;
+    const deadline = isoDay(g.deadline);
+    const lastWork = lastCountedWorkDay(deadline, g); // これ以降の勤務は目標日に間に合わない
+    const daysLeft = lastWork === null ? 0 : lastWork - start + 1;
+    const out = {
+      savings, remaining, remainingHours, daysLeft, deadline, lastWork,
+      lateEarned: mo.pending - mo.pendingCounted,
+      achieved: remaining <= 0,
+      cashReached: savings >= g.target,
+      expired: remaining > 0 && daysLeft <= 0
+    };
+    if (out.achieved || out.expired) return out;
+
+    const weekEnd = today + (6 - ((t.dow + 6) % 7)); // 月曜はじまり・日曜おわり
+    const period = (endDay) => {
+      const end = Math.min(endDay, lastWork);
+      const days = Math.max(0, end - start + 1);
+      return { end, days, hours: remainingHours * days / daysLeft };
+    };
+    out.week = period(weekEnd);
+    out.month = period(monthEndDay(t.y, t.m));
+    out.perDay = remainingHours / daysLeft;
+    return out;
+  }
+
+  /* ---------- 描画 ---------- */
+  function render() {
+    const has = !!state;
+    $('#setupView').hidden = has;
+    $('#mainView').hidden = !has;
+    $('#openSettings').hidden = !has;
+    $('#storageWarn').hidden = storageOK;
+    if (!has) {
+      $('#sDeadline').min = todayISO();
+      return;
+    }
+    renderSummary();
+    renderNeed();
+    renderWorked();
+    renderHistory();
+    renderFormMeta();
+  }
+
+  function renderSummary() {
+    const g = state.goal;
+    const mo = money(state);
+    const sv = mo.cash;
+    const pct = Math.max(0, Math.min(100, sv / g.target * 100));
+    const pendPct = Math.max(0, Math.min(100 - pct, mo.pendingCounted / g.target * 100));
+    $('#savingsAmount').textContent = yen(sv);
+    $('#barFill').style.width = pct + '%';
+    $('#barPending').style.width = pendPct + '%';
+    const pl = $('#pendingLine');
+    pl.hidden = mo.pending <= 0;
+    if (mo.pending > 0) {
+      const np = partsOfDay(mo.nextPay);
+      pl.innerHTML = `入金待ち <b>${yen(mo.pending)}</b>（次の入金は${np.y !== now().y ? np.y + '年' : ''}${np.m}月${np.d}日）`;
+    }
+    $('#bar').setAttribute('aria-valuenow', String(Math.floor(pct)));
+    $('#barPct').textContent = Math.floor(pct) + '%';
+    $('#barTarget').textContent = '目標 ' + yen(g.target);
+    const remain = Math.max(0, g.target - sv);
+    $('#factRemain').textContent = remain > 0 ? yen(remain) : '達成';
+    const dd = isoDay(g.deadline) - todayDay();
+    $('#factDeadline').textContent = fmtDay(isoDay(g.deadline), true);
+    $('#factDeadlineSub').textContent = dd > 0 ? `あと${dd}日` : dd === 0 ? '今日が期限です' : `${-dd}日過ぎています`;
+  }
+
+  const numBlock = (hours) =>
+    `<p class="need-num"><span class="n">${fmtH(hours)}</span><span class="u">時間</span></p>`;
+
+  function renderNeed() {
+    const c = compute();
+    const el = $('#needBody');
+    if (c.achieved) {
+      el.innerHTML = c.cashReached
+        ? '<p class="need-msg">目標金額に到達しました。</p><p class="note">次の目標は、設定から金額と日付を変えて続けられます。</p>'
+        : '<p class="need-msg">入金待ちを合わせると、目標金額に届きます。</p><p class="note">これ以上働かなくても、入金が済めば目標金額に到達します。</p>';
+      return;
+    }
+    if (c.expired) {
+      const upto = c.lastWork === null
+        ? '目標日までに入金される勤務期間がありません。'
+        : `目標日（${fmtDay(c.deadline, true)}）までに入金されるのは${fmtDay(c.lastWork, true)}までの勤務分で、その期間はすでに終わっています。`;
+      el.innerHTML =
+        '<p class="need-msg">目標日までに入金される勤務期間が残っていません。</p>' +
+        `<p class="note">${upto}目標金額まであと${yen(c.remaining)}（約${fmtH(c.remainingHours)}時間分）です。設定から目標日を後ろにずらしてください。</p>` +
+        (c.lateEarned > 0 ? `<p class="note">目標日に間に合わない入金待ち（${yen(c.lateEarned)}）は、計算に含めていません。</p>` : '');
+      return;
+    }
+    const sub = (p) => (p.days > 0 ? `あと${p.days}日（${fmtDay(p.end)}まで）` : '今週の残り日数はありません');
+    const subMonth = (p) => (p.days > 0 ? `あと${p.days}日（${fmtDay(p.end)}まで）` : '今月の残り日数はありません');
+    el.innerHTML =
+      `<div class="need-hero"><p class="need-name">今週</p>${numBlock(c.week.hours)}<p class="need-sub">${sub(c.week)}</p></div>` +
+      '<div class="need-pair">' +
+        `<div><p class="need-name">今月</p>${numBlock(c.month.hours)}<p class="need-sub">${subMonth(c.month)}</p></div>` +
+        `<div><p class="need-name">目標日まで</p>${numBlock(c.remainingHours)}<p class="need-sub">あと${c.daysLeft}日（${fmtDay(c.lastWork, true)}の勤務分まで）</p></div>` +
+      '</div>' +
+      (c.perDay > 24
+        ? `<p class="note" style="color:var(--danger);font-weight:700">1日あたり約${fmtH(c.perDay)}時間が必要で、現実的なペースではありません。設定から目標日や金額を見直してください。</p>`
+        : '') +
+      `<p class="note">目標日（${fmtDay(c.deadline, true)}）までに入金されるのは、${fmtDay(c.lastWork, true)}までの勤務分です。この期間の残り日数で均等に割ると、1日あたり約${fmtH(c.perDay)}時間のペースです。今日の勤務を記録済みの場合は明日から数えます。</p>` +
+      (c.lateEarned > 0 ? `<p class="note">目標日に間に合わない入金待ち（${yen(c.lateEarned)}）は、計算に含めていません。</p>` : '');
+  }
+
+  function renderWorked() {
+    const t = now();
+    const today = dayNum(t.y, t.m, t.d);
+    const wkStart = today - ((t.dow + 6) % 7);
+    const wkEnd = wkStart + 6;
+    const mStart = dayNum(t.y, t.m, 1);
+    const mEnd = monthEndDay(t.y, t.m);
+    let w = 0, m = 0;
+    for (const s of state.shifts) {
+      const n = isoDay(s.date);
+      if (n >= wkStart && n <= wkEnd) w += s.minutes;
+      if (n >= mStart && n <= mEnd) m += s.minutes;
+    }
+    $('#workedStats').innerHTML = `<span>今週 <b>${fmtHM(w)}</b></span><span>今月 <b>${fmtHM(m)}</b></span>`;
+  }
+
+  function renderHistory() {
+    const items = [
+      ...state.shifts.map((s) => ({ kind: 'shift', ...s })),
+      ...state.adjustments.map((a) => ({ kind: 'adj', ...a }))
+    ].sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : a.at < b.at ? 1 : a.at > b.at ? -1 : 0));
+
+    const list = $('#historyList');
+    if (!items.length) {
+      list.innerHTML = '<li class="empty">まだ記録がありません。勤務が終わったら、上のフォームに勤務時間を入力してください。</li>';
+      $('#moreBtn').hidden = true;
+      return;
+    }
+    const shown = items.slice(0, historyLimit);
+    const today = todayDay();
+    list.innerHTML = shown.map((it) => {
+      if (it.kind === 'shift') {
+        const pd = payDayOf(it.date, state.goal);
+        const pay = pd <= today ? '入金済み' : `${fmtDay(pd, partsOfDay(pd).y !== now().y)}に入金予定`;
+        return `<li class="item">
+          <p class="item-date">${fmtISO(it.date)}<span class="item-pay">${pay}</span></p>
+          <p class="item-amt pos">+${yen(it.earned)}</p>
+          <p class="item-detail">${fmtHM(it.minutes)}（時給 ${yen(it.wage)}）</p>
+          <div class="item-actions">
+            <button type="button" class="btn-text" data-act="edit" data-id="${it.id}">編集</button>
+            <button type="button" class="btn-text danger" data-act="del" data-id="${it.id}">削除</button>
+          </div></li>`;
+      }
+      const pos = it.delta >= 0;
+      return `<li class="item">
+          <p class="item-date">${fmtISO(it.date)}</p>
+          <p class="item-amt ${pos ? 'pos' : 'neg'}">${pos ? '+' : ''}${yen(it.delta)}</p>
+          <p class="item-detail">貯金額を修正</p>
+          <div class="item-actions">
+            <button type="button" class="btn-text danger" data-act="delAdj" data-id="${it.id}">削除</button>
+          </div></li>`;
+    }).join('');
+    $('#moreBtn').hidden = items.length <= historyLimit;
+  }
+
+  function renderFormMeta() {
+    const iso = todayISO();
+    $('#shiftDate').max = iso;
+    if (!editingId && ($('#shiftDate').value === '' || $('#shiftDate').value === defaultDate)) {
+      $('#shiftDate').value = iso;
+    }
+    defaultDate = iso;
+  }
+
+  /* ---------- 勤務フォーム ---------- */
+  const optNum = (v) => (String(v).trim() === '' ? 0 : Number(v));
+
+  function formMinutes() {
+    const h = optNum($('#shiftH').value);
+    const m = optNum($('#shiftM').value);
+    if (!Number.isFinite(h) || !Number.isFinite(m)) return { error: '勤務時間は数字で入力してください。' };
+    if (h < 0 || m < 0) return { error: '勤務時間は0以上で入力してください。' };
+    if (m >= 60) return { error: '分は0〜59で入力してください。' };
+    const min = Math.round(h * 60) + Math.round(m);
+    if (min <= 0) return { error: '勤務時間を入力してください。' };
+    if (min > 1440) return { error: '勤務時間は24時間以内で入力してください。' };
+    return { min };
+  }
+
+  function updatePreview() {
+    const el = $('#shiftPreview');
+    const r = formMinutes();
+    if (r.error || !state) { el.textContent = ''; return; }
+    const editing = editingId ? state.shifts.find((s) => s.id === editingId) : null;
+    const wage = editing ? editing.wage : state.goal.hourlyWage;
+    el.textContent = `${fmtHM(r.min)} → +${yen(earnedOf(r.min, wage))}`;
+  }
+
+  function resetShiftForm() {
+    editingId = null;
+    $('#shiftDate').value = todayISO();
+    defaultDate = todayISO();
+    $('#shiftH').value = '';
+    $('#shiftM').value = '';
+    $('#shiftError').textContent = '';
+    $('#shiftPreview').textContent = '';
+    $('#formTitle').textContent = '勤務を記録';
+    $('#shiftSubmit').textContent = '記録する';
+    $('#shiftCancel').hidden = true;
+  }
+
+  function startEdit(id) {
+    const s = state.shifts.find((x) => x.id === id);
+    if (!s) return;
+    editingId = id;
+    $('#shiftDate').value = s.date;
+    $('#shiftH').value = Math.floor(s.minutes / 60);
+    $('#shiftM').value = s.minutes % 60;
+    $('#shiftError').textContent = '';
+    $('#formTitle').textContent = '勤務を編集';
+    $('#shiftSubmit').textContent = '更新する';
+    $('#shiftCancel').hidden = false;
+    updatePreview();
+    $('#shiftForm').scrollIntoView({ behavior: reducedMotion() ? 'auto' : 'smooth', block: 'center' });
+    $('#shiftH').focus({ preventScroll: true });
+  }
+
+  $('#shiftForm').addEventListener('submit', (e) => {
+    e.preventDefault();
+    const err = $('#shiftError');
+    const date = $('#shiftDate').value;
+    if (!parseISO(date)) { err.textContent = '日付を選んでください。'; return; }
+    if (isoDay(date) > todayDay()) { err.textContent = '今日より先の日付は記録できません。'; return; }
+    const r = formMinutes();
+    if (r.error) { err.textContent = r.error; return; }
+    err.textContent = '';
+    if (editingId) {
+      const s = state.shifts.find((x) => x.id === editingId);
+      if (s) { s.date = date; s.minutes = r.min; s.earned = earnedOf(r.min, s.wage); }
+      toast('勤務を更新しました');
+    } else {
+      state.shifts.push({
+        id: newId(), date, minutes: r.min,
+        wage: state.goal.hourlyWage,
+        earned: earnedOf(r.min, state.goal.hourlyWage),
+        at: new Date().toISOString()
+      });
+      toast('勤務を記録しました');
+    }
+    save();
+    resetShiftForm();
+    render();
+  });
+  $('#shiftCancel').addEventListener('click', resetShiftForm);
+  $('#shiftH').addEventListener('input', updatePreview);
+  $('#shiftM').addEventListener('input', updatePreview);
+
+  /* ---------- 履歴の操作 ---------- */
+  $('#historyList').addEventListener('click', async (e) => {
+    const b = e.target.closest('button[data-act]');
+    if (!b) return;
+    const id = b.dataset.id;
+    if (b.dataset.act === 'edit') { startEdit(id); return; }
+    if (b.dataset.act === 'del') {
+      const s = state.shifts.find((x) => x.id === id);
+      if (!s) return;
+      const ok = await confirmDialog({
+        title: 'この勤務記録を削除しますか？',
+        message: `${fmtISO(s.date)}・${fmtHM(s.minutes)}（${yen(s.earned)}）を削除すると、この金額が貯金額・入金待ちから外れます。`,
+        ok: '削除する', danger: true
+      });
+      if (!ok) return;
+      state.shifts = state.shifts.filter((x) => x.id !== id);
+      if (editingId === id) resetShiftForm();
+      save(); render(); toast('削除しました');
+    }
+    if (b.dataset.act === 'delAdj') {
+      const a = state.adjustments.find((x) => x.id === id);
+      if (!a) return;
+      const ok = await confirmDialog({
+        title: 'この修正を取り消しますか？',
+        message: `${fmtISO(a.date)}の貯金額の修正（${a.delta >= 0 ? '+' : ''}${yen(a.delta)}）を取り消すと、貯金額が元に戻ります。`,
+        ok: '取り消す', danger: true
+      });
+      if (!ok) return;
+      state.adjustments = state.adjustments.filter((x) => x.id !== id);
+      save(); render(); toast('取り消しました');
+    }
+  });
+  $('#moreBtn').addEventListener('click', () => { historyLimit += PAGE_SIZE; renderHistory(); });
+
+  /* ---------- 貯金額の修正 ---------- */
+  const dlgSavings = $('#dlgSavings');
+  $('#editSavings').addEventListener('click', () => {
+    $('#svInput').value = Math.round(savingsNow(state));
+    $('#svError').textContent = '';
+    dlgSavings.showModal();
+    $('#svInput').select();
+  });
+  $('#savingsForm').addEventListener('submit', (e) => {
+    e.preventDefault();
+    const raw = $('#svInput').value.trim();
+    const v = raw === '' ? NaN : Number(raw);
+    if (!(v >= 0)) { $('#svError').textContent = '0以上の数字で入力してください。'; return; }
+    const next = Math.round(v);
+    const delta = next - Math.round(savingsNow(state));
+    dlgSavings.close();
+    if (delta === 0) return;
+    state.adjustments.push({ id: newId(), date: todayISO(), delta, at: new Date().toISOString() });
+    save(); render(); toast('貯金額を修正しました');
+  });
+
+  /* ---------- 目標の検証（初回設定・設定画面で共通） ---------- */
+  function readNum(el) {
+    const v = el.value.trim();
+    if (v === '') return NaN;
+    const n = Number(v);
+    return Number.isFinite(n) ? n : NaN;
+  }
+  function goalError({ target, deadline, wage, closing, payDay }, checkDeadline) {
+    if (!(target > 0)) return '目標金額は1円以上の数字で入力してください。';
+    if (!parseISO(deadline)) return '目標を達成する日を選んでください。';
+    if (checkDeadline && isoDay(deadline) < todayDay()) return '目標日は今日以降の日付にしてください。';
+    if (!(wage > 0)) return '時給は1円以上の数字で入力してください。';
+    const okDay = (v) => Number.isInteger(v) && v >= 1 && v <= 31;
+    if (!okDay(closing)) return '締め日は1〜31の整数で入力してください（月末は31）。';
+    if (!okDay(payDay)) return '支払日は1〜31の整数で入力してください。';
+    return '';
+  }
+
+  /* ---------- 初回設定 ---------- */
+  $('#setupForm').addEventListener('submit', (e) => {
+    e.preventDefault();
+    const cur = readNum($('#sCurrent'));
+    const target = readNum($('#sTarget'));
+    const wage = readNum($('#sWage'));
+    const deadline = $('#sDeadline').value;
+    const err = $('#setupError');
+    if (!(cur >= 0)) { err.textContent = 'いまの貯金は0円以上の数字で入力してください。'; return; }
+    const closing = readNum($('#sClosing'));
+    const payDay = readNum($('#sPayDay'));
+    const ge = goalError({ target, deadline, wage, closing, payDay }, true);
+    if (ge) { err.textContent = ge; return; }
+    if (!(target > cur)) { err.textContent = '目標金額は、いまの貯金より大きくしてください。'; return; }
+    err.textContent = '';
+    state = {
+      app: APP_ID, schemaVersion: SCHEMA,
+      goal: {
+        baseSavings: Math.round(cur), target: Math.round(target),
+        deadline, hourlyWage: wage, closingDay: closing, payDay, createdAt: new Date().toISOString()
+      },
+      shifts: [], adjustments: []
+    };
+    save();
+    historyLimit = PAGE_SIZE;
+    resetShiftForm();
+    render();
+    window.scrollTo(0, 0);
+  });
+
+  /* ---------- 設定 ---------- */
+  const dlgSettings = $('#dlgSettings');
+  $('#openSettings').addEventListener('click', () => {
+    $('#gTarget').value = state.goal.target;
+    $('#gDeadline').value = state.goal.deadline;
+    $('#gWage').value = state.goal.hourlyWage;
+    $('#gClosing').value = state.goal.closingDay;
+    $('#gPayDay').value = state.goal.payDay;
+    $('#goalError').textContent = '';
+    dlgSettings.showModal();
+  });
+  $('#goalForm').addEventListener('submit', (e) => {
+    e.preventDefault();
+    const target = readNum($('#gTarget'));
+    const wage = readNum($('#gWage'));
+    const deadline = $('#gDeadline').value;
+    const closing = readNum($('#gClosing'));
+    const payDay = readNum($('#gPayDay'));
+    const changed = deadline !== state.goal.deadline;
+    const ge = goalError({ target, deadline, wage, closing, payDay }, changed);
+    if (ge) { $('#goalError').textContent = ge; return; }
+    state.goal.target = Math.round(target);
+    state.goal.deadline = deadline;
+    state.goal.hourlyWage = wage;
+    state.goal.closingDay = closing;
+    state.goal.payDay = payDay;
+    save();
+    dlgSettings.close();
+    render();
+    toast('目標を保存しました');
+  });
+
+  /* ---------- エクスポート / インポート ---------- */
+  $('#exportBtn').addEventListener('click', () => {
+    const data = { ...state, exportedAt: new Date().toISOString() };
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `savings-pace-${todayISO()}.json`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 2000);
+    dlgSettings.close();
+    toast('エクスポートしました');
+  });
+
+  const fileInput = $('#fileInput');
+  $('#importBtn').addEventListener('click', () => fileInput.click());
+  $('#setupImport').addEventListener('click', () => fileInput.click());
+  fileInput.addEventListener('change', async () => {
+    const file = fileInput.files && fileInput.files[0];
+    fileInput.value = '';
+    if (!file) return;
+    dlgSettings.close();
+    let next;
+    try {
+      let obj;
+      try { obj = JSON.parse(await file.text()); }
+      catch (_) { throw new Error('JSONとして読み取れませんでした。'); }
+      next = normalizeState(obj);
+    } catch (err) {
+      toast(err.message || '読み込みに失敗しました。', true);
+      return;
+    }
+    if (state) {
+      const ok = await confirmDialog({
+        title: 'データを置き換えますか？',
+        message: `いまのデータは消え、ファイルの内容（勤務記録${next.shifts.length}件、目標金額${yen(next.goal.target)}）に置き換わります。`,
+        ok: '置き換える', danger: true
+      });
+      if (!ok) return;
+    }
+    state = next;
+    save();
+    historyLimit = PAGE_SIZE;
+    resetShiftForm();
+    render();
+    toast('インポートしました');
+  });
+
+  $('#resetBtn').addEventListener('click', async () => {
+    const ok = await confirmDialog({
+      title: 'すべてのデータを削除しますか？',
+      message: 'この端末に保存された目標と勤務履歴を消します。元に戻せません。必要な場合は先にエクスポートしてください。',
+      ok: '削除する', danger: true
+    });
+    if (!ok) return;
+    try { localStorage.removeItem(STORAGE_KEY); } catch (_) { /* ignore */ }
+    state = null;
+    dlgSettings.close();
+    resetShiftForm();
+    ['#sCurrent', '#sTarget', '#sWage', '#sDeadline'].forEach((s) => { $(s).value = ''; });
+    $('#sClosing').value = DEFAULT_CLOSING;
+    $('#sPayDay').value = DEFAULT_PAYDAY;
+    render();
+    toast('削除しました');
+  });
+
+  /* ---------- 共通UI ---------- */
+  function confirmDialog({ title, message, ok = 'OK', danger = false }) {
+    return new Promise((resolve) => {
+      const d = $('#dlgConfirm');
+      const okBtn = $('#cfOk');
+      $('#cfTitle').textContent = title;
+      $('#cfMsg').textContent = message;
+      okBtn.textContent = ok;
+      okBtn.className = 'btn ' + (danger ? 'danger-solid' : 'primary');
+      let result = false;
+      const onOk = () => { result = true; d.close(); };
+      const onClose = () => {
+        okBtn.removeEventListener('click', onOk);
+        d.removeEventListener('close', onClose);
+        resolve(result);
+      };
+      okBtn.addEventListener('click', onOk);
+      d.addEventListener('close', onClose);
+      d.showModal();
+    });
+  }
+  $('#cfCancel').addEventListener('click', () => $('#dlgConfirm').close());
+
+  document.addEventListener('click', (e) => {
+    const closer = e.target.closest('[data-close]');
+    if (closer) { closer.closest('dialog').close(); return; }
+    if (e.target instanceof HTMLDialogElement) e.target.close(); // 背景クリックで閉じる
+  });
+
+  let toastTimer;
+  function toast(msg, isErr = false) {
+    const t = $('#toast');
+    t.textContent = msg;
+    t.classList.toggle('err', isErr);
+    t.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => t.classList.remove('show'), isErr ? 5000 : 2400);
+  }
+
+  /* ---------- 起動 ---------- */
+  try { localStorage.setItem('__probe', '1'); localStorage.removeItem('__probe'); } catch (e) { storageOK = false; }
+  state = load();
+  resetShiftForm();
+  render();
+
+  // 日付をまたいで開きっぱなしでも、戻ってきたときに計算し直す
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) render(); });
+  // 別タブでの変更を反映する
+  window.addEventListener('storage', (e) => {
+    if (e.key === STORAGE_KEY || e.key === null) {
+      state = load();
+      editingId = null;
+      render();
+    }
+  });
+})();
+</script>
+</body>
+</html>
