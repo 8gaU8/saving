@@ -1,81 +1,22 @@
 import qrcode from 'qrcode-generator';
 import jsQR from 'jsqr';
 import './styles/main.css';
+import { parseISO, isoDay, partsOfDay, dayNum, monthEndDay } from './core/dates.js';
+import { now, todayISO, todayDay } from './core/clock.js';
+import { DEFAULT_CLOSING, DEFAULT_PAYDAY, payDayOf } from './core/payCycle.js';
+import { yen, fmtH, fmtHM, fmtDay, fmtISO as fmtISOIn } from './core/format.js';
+import { earnedOf, money } from './core/money.js';
+import { compute } from './core/compute.js';
+import { APP_ID, SCHEMA, newId, normalizeState } from './core/schema.js';
+import { readNum, goalError, formMinutes } from './core/validation.js';
+import { QR_MAX_CHUNKS, QR_RE, encodePayload, decodePayload, makeChunks } from './core/qrCodec.js';
 
 const STORAGE_KEY = 'savings-pace:v1';
-const APP_ID = 'savings-pace';
-const SCHEMA = 1;
-const MAX_ROWS = 20000;
 const PAGE_SIZE = 20;
-const WEEKDAYS = ['日', '月', '火', '水', '木', '金', '土'];
 
 const $ = (sel, root = document) => root.querySelector(sel);
-const pad = (n) => String(n).padStart(2, '0');
-const isNum = (x) => typeof x === 'number' && Number.isFinite(x);
 const reducedMotion = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-const newId = () => (crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(36) + Math.random().toString(36).slice(2, 10));
-
-/* ---------- 日付 ---------- */
-const dayNum = (y, m, d) => Math.floor(Date.UTC(y, m - 1, d) / 86400000);
-function parseISO(s) {
-  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(s));
-  if (!m) return null;
-  const y = +m[1], mo = +m[2], d = +m[3];
-  const t = new Date(Date.UTC(y, mo - 1, d));
-  if (t.getUTCFullYear() !== y || t.getUTCMonth() !== mo - 1 || t.getUTCDate() !== d) return null;
-  return { y, m: mo, d };
-}
-const isoDay = (s) => { const p = parseISO(s); return p ? dayNum(p.y, p.m, p.d) : null; };
-const partsOfDay = (n) => {
-  const t = new Date(n * 86400000);
-  return { y: t.getUTCFullYear(), m: t.getUTCMonth() + 1, d: t.getUTCDate(), dow: t.getUTCDay() };
-};
-const now = () => { const t = new Date(); return { y: t.getFullYear(), m: t.getMonth() + 1, d: t.getDate(), dow: t.getDay() }; };
-const todayISO = () => { const t = now(); return `${t.y}-${pad(t.m)}-${pad(t.d)}`; };
-const todayDay = () => { const t = now(); return dayNum(t.y, t.m, t.d); };
-const monthEndDay = (y, m) => dayNum(y, m + 1, 0);
-const dim = (y, m) => new Date(Date.UTC(y, m, 0)).getUTCDate(); // その月の日数
-const addMonth = (y, m, k) => { const t = y * 12 + (m - 1) + k; return { y: Math.floor(t / 12), m: (t % 12) + 1 }; };
-
-/* ---------- 給与サイクル（N日締め・翌月M日払い） ---------- */
-const DEFAULT_CLOSING = 31; // 31 = 月末締め
-const DEFAULT_PAYDAY = 25;
-// 勤務日 → 入金日（dayNum）
-function payDayOf(dateISO, g) {
-  const p = parseISO(dateISO);
-  const c = Math.min(g.closingDay, dim(p.y, p.m));
-  const cm = p.d <= c ? { y: p.y, m: p.m } : addMonth(p.y, p.m, 1);
-  const pm = addMonth(cm.y, cm.m, 1);
-  return dayNum(pm.y, pm.m, Math.min(g.payDay, dim(pm.y, pm.m)));
-}
-// 目標日までに入金される最後の勤務日（dayNum）。なければ null
-function lastCountedWorkDay(deadline, g) {
-  const dp = partsOfDay(deadline);
-  for (let k = 0; k <= 3; k++) {
-    const cm = addMonth(dp.y, dp.m, -k);
-    const closing = dayNum(cm.y, cm.m, Math.min(g.closingDay, dim(cm.y, cm.m)));
-    const pm = addMonth(cm.y, cm.m, 1);
-    const pay = dayNum(pm.y, pm.m, Math.min(g.payDay, dim(pm.y, pm.m)));
-    if (pay <= deadline) return closing;
-  }
-  return null;
-}
-
-/* ---------- 表示用フォーマット ---------- */
-const yen = (n) => (n < 0 ? '−' : '') + '¥' + Math.abs(Math.round(n)).toLocaleString('ja-JP');
-const ceil1 = (h) => Math.ceil(h * 10 - 1e-9) / 10;
-const fmtH = (h) => { const v = ceil1(h); return Number.isInteger(v) ? String(v) : v.toFixed(1); };
-const fmtHM = (min) => {
-  const h = Math.floor(min / 60), m = min % 60;
-  if (h && m) return `${h}時間${m}分`;
-  if (h) return `${h}時間`;
-  return `${m}分`;
-};
-const fmtDay = (n, withYear) => { const p = partsOfDay(n); return `${withYear ? p.y + '年' : ''}${p.m}月${p.d}日`; };
-const fmtISO = (s) => {
-  const p = partsOfDay(isoDay(s));
-  return `${p.y !== now().y ? p.y + '年' : ''}${p.m}月${p.d}日（${WEEKDAYS[p.dow]}）`;
-};
+const fmtISO = (s) => fmtISOIn(s, now().y);
 
 /* ---------- 状態 ---------- */
 let state = null;
@@ -84,82 +25,7 @@ let historyLimit = PAGE_SIZE;
 let storageOK = true;
 let defaultDate = '';
 
-const earnedOf = (minutes, wage) => Math.round(minutes * wage / 60);
-// 貯金（入金済みの分）と入金待ちの内訳
-function money(s) {
-  const g = s.goal, today = todayDay(), deadline = isoDay(g.deadline);
-  let cash = g.baseSavings + s.adjustments.reduce((a, x) => a + x.delta, 0);
-  let pending = 0, pendingCounted = 0, nextPay = null;
-  for (const x of s.shifts) {
-    const pd = payDayOf(x.date, g);
-    if (pd <= today) { cash += x.earned; continue; }
-    pending += x.earned;
-    if (pd <= deadline) pendingCounted += x.earned;
-    if (nextPay === null || pd < nextPay) nextPay = pd;
-  }
-  return { cash, pending, pendingCounted, nextPay };
-}
-const savingsNow = (s) => money(s).cash;
-
-function normalizeState(o) {
-  const fail = (m) => { throw new Error(m); };
-  if (!o || typeof o !== 'object' || Array.isArray(o)) fail('ファイルの形式が正しくありません。');
-  if (o.app !== APP_ID) fail('このアプリで書き出したファイルではありません。');
-  if (o.schemaVersion !== SCHEMA) fail('対応していないバージョンのファイルです。');
-  const g = o.goal;
-  if (!g || typeof g !== 'object') fail('目標のデータがありません。');
-  if (!isNum(g.baseSavings) || g.baseSavings < 0) fail('貯金額のデータが正しくありません。');
-  if (!isNum(g.target) || g.target <= 0) fail('目標金額のデータが正しくありません。');
-  if (!parseISO(g.deadline)) fail('目標日のデータが正しくありません。');
-  if (!isNum(g.hourlyWage) || g.hourlyWage <= 0) fail('時給のデータが正しくありません。');
-  const validDay = (v) => Number.isInteger(v) && v >= 1 && v <= 31;
-  const closingDay = g.closingDay === undefined ? DEFAULT_CLOSING : g.closingDay;
-  const payDay = g.payDay === undefined ? DEFAULT_PAYDAY : g.payDay;
-  if (!validDay(closingDay)) fail('締め日のデータが正しくありません。');
-  if (!validDay(payDay)) fail('支払日のデータが正しくありません。');
-  if (!Array.isArray(o.shifts)) fail('勤務履歴のデータが正しくありません。');
-  const adjIn = o.adjustments === undefined ? [] : o.adjustments;
-  if (!Array.isArray(adjIn)) fail('貯金額の修正履歴が正しくありません。');
-  if (o.shifts.length > MAX_ROWS || adjIn.length > MAX_ROWS) fail('データが大きすぎます。');
-
-  const used = new Set();
-  const uid = (v) => {
-    let id = typeof v === 'string' ? v.replace(/[^\w-]/g, '').slice(0, 64) : '';
-    if (!id || used.has(id)) id = newId();
-    used.add(id);
-    return id;
-  };
-  const str = (v) => (typeof v === 'string' ? v.slice(0, 40) : '');
-
-  const shifts = o.shifts.map((s, i) => {
-    if (!s || typeof s !== 'object') fail(`勤務履歴の${i + 1}件目が正しくありません。`);
-    if (!parseISO(s.date)) fail(`勤務履歴の${i + 1}件目の日付が正しくありません。`);
-    if (!Number.isInteger(s.minutes) || s.minutes < 1 || s.minutes > 1440) fail(`勤務履歴の${i + 1}件目の勤務時間が正しくありません。`);
-    const wage = isNum(s.wage) && s.wage >= 0 ? s.wage : g.hourlyWage;
-    const earned = isNum(s.earned) ? Math.round(s.earned) : earnedOf(s.minutes, wage);
-    return { id: uid(s.id), date: s.date, minutes: s.minutes, wage, earned, at: str(s.at) };
-  });
-  const adjustments = adjIn.map((a, i) => {
-    if (!a || typeof a !== 'object' || !parseISO(a.date) || !isNum(a.delta)) fail(`貯金額の修正履歴の${i + 1}件目が正しくありません。`);
-    return { id: uid(a.id), date: a.date, delta: Math.round(a.delta), at: str(a.at) };
-  });
-
-  return {
-    app: APP_ID,
-    schemaVersion: SCHEMA,
-    goal: {
-      baseSavings: Math.round(g.baseSavings),
-      target: Math.round(g.target),
-      deadline: g.deadline,
-      hourlyWage: g.hourlyWage,
-      closingDay,
-      payDay,
-      createdAt: str(g.createdAt)
-    },
-    shifts,
-    adjustments
-  };
-}
+const savingsNow = (s) => money(s, todayDay()).cash;
 
 function load() {
   let raw = null;
@@ -176,43 +42,6 @@ function save() {
   try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); storageOK = true; }
   catch (e) { storageOK = false; }
   $('#storageWarn').hidden = storageOK;
-}
-
-/* ---------- 計算 ---------- */
-function compute() {
-  const g = state.goal;
-  const mo = money(state);
-  const savings = mo.cash;
-  // 入金待ちのうち、目標日までに入金される分は「確定した収入」として差し引く
-  const remaining = Math.max(0, g.target - savings - mo.pendingCounted);
-  const remainingHours = remaining / g.hourlyWage;
-  const t = now();
-  const today = dayNum(t.y, t.m, t.d);
-  const iso = todayISO();
-  const loggedToday = state.shifts.some((s) => s.date === iso);
-  const start = loggedToday ? today + 1 : today;
-  const deadline = isoDay(g.deadline);
-  const lastWork = lastCountedWorkDay(deadline, g); // これ以降の勤務は目標日に間に合わない
-  const daysLeft = lastWork === null ? 0 : lastWork - start + 1;
-  const out = {
-    savings, remaining, remainingHours, daysLeft, deadline, lastWork,
-    lateEarned: mo.pending - mo.pendingCounted,
-    achieved: remaining <= 0,
-    cashReached: savings >= g.target,
-    expired: remaining > 0 && daysLeft <= 0
-  };
-  if (out.achieved || out.expired) return out;
-
-  const weekEnd = today + (6 - ((t.dow + 6) % 7)); // 月曜はじまり・日曜おわり
-  const period = (endDay) => {
-    const end = Math.min(endDay, lastWork);
-    const days = Math.max(0, end - start + 1);
-    return { end, days, hours: remainingHours * days / daysLeft };
-  };
-  out.week = period(weekEnd);
-  out.month = period(monthEndDay(t.y, t.m));
-  out.perDay = remainingHours / daysLeft;
-  return out;
 }
 
 /* ---------- 描画 ---------- */
@@ -235,7 +64,7 @@ function render() {
 
 function renderSummary() {
   const g = state.goal;
-  const mo = money(state);
+  const mo = money(state, todayDay());
   const sv = mo.cash;
   const pct = Math.max(0, Math.min(100, sv / g.target * 100));
   const pendPct = Math.max(0, Math.min(100 - pct, mo.pendingCounted / g.target * 100));
@@ -262,7 +91,7 @@ const numBlock = (hours) =>
   `<p class="need-num"><span class="n">${fmtH(hours)}</span><span class="u">時間</span></p>`;
 
 function renderNeed() {
-  const c = compute();
+  const c = compute(state, now());
   const el = $('#needBody');
   if (c.achieved) {
     el.innerHTML = c.cashReached
@@ -360,23 +189,9 @@ function renderFormMeta() {
 }
 
 /* ---------- 勤務フォーム ---------- */
-const optNum = (v) => (String(v).trim() === '' ? 0 : Number(v));
-
-function formMinutes() {
-  const h = optNum($('#shiftH').value);
-  const m = optNum($('#shiftM').value);
-  if (!Number.isFinite(h) || !Number.isFinite(m)) return { error: '勤務時間は数字で入力してください。' };
-  if (h < 0 || m < 0) return { error: '勤務時間は0以上で入力してください。' };
-  if (m >= 60) return { error: '分は0〜59で入力してください。' };
-  const min = Math.round(h * 60) + Math.round(m);
-  if (min <= 0) return { error: '勤務時間を入力してください。' };
-  if (min > 1440) return { error: '勤務時間は24時間以内で入力してください。' };
-  return { min };
-}
-
 function updatePreview() {
   const el = $('#shiftPreview');
-  const r = formMinutes();
+  const r = formMinutes($('#shiftH').value, $('#shiftM').value);
   if (r.error || !state) { el.textContent = ''; return; }
   const editing = editingId ? state.shifts.find((s) => s.id === editingId) : null;
   const wage = editing ? editing.wage : state.goal.hourlyWage;
@@ -418,7 +233,7 @@ $('#shiftForm').addEventListener('submit', (e) => {
   const date = $('#shiftDate').value;
   if (!parseISO(date)) { err.textContent = '日付を選んでください。'; return; }
   if (isoDay(date) > todayDay()) { err.textContent = '今日より先の日付は記録できません。'; return; }
-  const r = formMinutes();
+  const r = formMinutes($('#shiftH').value, $('#shiftM').value);
   if (r.error) { err.textContent = r.error; return; }
   err.textContent = '';
   if (editingId) {
@@ -497,36 +312,18 @@ $('#savingsForm').addEventListener('submit', (e) => {
   save(); render(); toast('貯金額を修正しました');
 });
 
-/* ---------- 目標の検証（初回設定・設定画面で共通） ---------- */
-function readNum(el) {
-  const v = el.value.trim();
-  if (v === '') return NaN;
-  const n = Number(v);
-  return Number.isFinite(n) ? n : NaN;
-}
-function goalError({ target, deadline, wage, closing, payDay }, checkDeadline) {
-  if (!(target > 0)) return '目標金額は1円以上の数字で入力してください。';
-  if (!parseISO(deadline)) return '目標を達成する日を選んでください。';
-  if (checkDeadline && isoDay(deadline) < todayDay()) return '目標日は今日以降の日付にしてください。';
-  if (!(wage > 0)) return '時給は1円以上の数字で入力してください。';
-  const okDay = (v) => Number.isInteger(v) && v >= 1 && v <= 31;
-  if (!okDay(closing)) return '締め日は1〜31の整数で入力してください（月末は31）。';
-  if (!okDay(payDay)) return '支払日は1〜31の整数で入力してください。';
-  return '';
-}
-
 /* ---------- 初回設定 ---------- */
 $('#setupForm').addEventListener('submit', (e) => {
   e.preventDefault();
-  const cur = readNum($('#sCurrent'));
-  const target = readNum($('#sTarget'));
-  const wage = readNum($('#sWage'));
+  const cur = readNum($('#sCurrent').value);
+  const target = readNum($('#sTarget').value);
+  const wage = readNum($('#sWage').value);
   const deadline = $('#sDeadline').value;
   const err = $('#setupError');
   if (!(cur >= 0)) { err.textContent = 'いまの貯金は0円以上の数字で入力してください。'; return; }
-  const closing = readNum($('#sClosing'));
-  const payDay = readNum($('#sPayDay'));
-  const ge = goalError({ target, deadline, wage, closing, payDay }, true);
+  const closing = readNum($('#sClosing').value);
+  const payDay = readNum($('#sPayDay').value);
+  const ge = goalError({ target, deadline, wage, closing, payDay }, true, todayDay());
   if (ge) { err.textContent = ge; return; }
   if (!(target > cur)) { err.textContent = '目標金額は、いまの貯金より大きくしてください。'; return; }
   err.textContent = '';
@@ -558,13 +355,13 @@ $('#openSettings').addEventListener('click', () => {
 });
 $('#goalForm').addEventListener('submit', (e) => {
   e.preventDefault();
-  const target = readNum($('#gTarget'));
-  const wage = readNum($('#gWage'));
+  const target = readNum($('#gTarget').value);
+  const wage = readNum($('#gWage').value);
   const deadline = $('#gDeadline').value;
-  const closing = readNum($('#gClosing'));
-  const payDay = readNum($('#gPayDay'));
+  const closing = readNum($('#gClosing').value);
+  const payDay = readNum($('#gPayDay').value);
   const changed = deadline !== state.goal.deadline;
-  const ge = goalError({ target, deadline, wage, closing, payDay }, changed);
+  const ge = goalError({ target, deadline, wage, closing, payDay }, changed, todayDay());
   if (ge) { $('#goalError').textContent = ge; return; }
   state.goal.target = Math.round(target);
   state.goal.deadline = deadline;
@@ -653,123 +450,6 @@ $('#resetBtn').addEventListener('click', async () => {
 
 
 /* ---------- QRコード（書き出し／読み込み） ---------- */
-// 形式: SP1.<セッションID>.<番号>.<総数>.<データ>  （データ = 圧縮したコンパクトJSONをbase64url化したもの）
-const QR_CHUNK = 380;      // 1枚あたりの文字数（小さいほど読み取りやすい）
-const QR_MAX_CHUNKS = 200;
-const QR_RE = /^SP1\.([0-9a-z]{4,8})\.(\d{1,3})\.(\d{1,3})\.([A-Za-z0-9_-]+)$/;
-const hasCompression = typeof CompressionStream === 'function' && typeof DecompressionStream === 'function';
-
-function toB64u(bytes) {
-  let bin = '';
-  for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000));
-  return btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
-}
-function fromB64u(str) {
-  const bin = atob(str.replace(/-/g, '+').replace(/_/g, '/'));
-  const out = new Uint8Array(bin.length);
-  for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
-  return out;
-}
-async function runStream(stream, bytes) {
-  const w = stream.writable.getWriter();
-  w.write(bytes).catch(() => {});
-  w.close().catch(() => {});
-  return new Uint8Array(await new Response(stream.readable).arrayBuffer());
-}
-
-const secOf = (iso) => { const t = Date.parse(iso); return Number.isFinite(t) ? Math.floor(t / 1000) : 0; };
-const isoOfDay = (n) => { const p = partsOfDay(n); return `${p.y}-${pad(p.m)}-${pad(p.d)}`; };
-
-// 状態 → 短い配列形式。日付は日数の差分、入力時刻とIDは省く（読み込み時に順序を保って振り直す）
-function toCompact(s) {
-  const g = s.goal;
-  const byDate = (a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : a.at < b.at ? -1 : a.at > b.at ? 1 : 0);
-  let prev = 0;
-  const rows = [...s.shifts].sort(byDate).map((x) => {
-    const d = isoDay(x.date);
-    const row = [d - prev, x.minutes, x.wage];
-    prev = d;
-    if (x.earned !== earnedOf(x.minutes, x.wage)) row.push(x.earned);
-    return row;
-  });
-  prev = 0;
-  const adj = [...s.adjustments].sort(byDate).map((x) => {
-    const d = isoDay(x.date);
-    const row = [d - prev, x.delta];
-    prev = d;
-    return row;
-  });
-  return {
-    v: 1,
-    g: [g.baseSavings, g.target, isoDay(g.deadline), g.hourlyWage, g.closingDay, g.payDay, secOf(g.createdAt)],
-    s: rows, a: adj
-  };
-}
-function fromCompact(c) {
-  const bad = () => { throw new Error('QRのデータが正しくありません。'); };
-  if (!c || c.v !== 1 || !Array.isArray(c.g) || !Array.isArray(c.s) || !Array.isArray(c.a)) bad();
-  const [baseSavings, target, deadlineDay, hourlyWage, closingDay, payDay, created] = c.g;
-  const dayOk = (n) => Number.isInteger(n) && n > 0 && n < 100000;
-  if (!dayOk(deadlineDay)) bad();
-  const baseAt = (isNum(created) && created > 0 ? created : 1577836800) * 1000;
-  let prev = 0;
-  const shifts = c.s.map((r, i) => {
-    if (!Array.isArray(r)) bad();
-    prev += r[0];
-    if (!dayOk(prev)) bad();
-    return {
-      date: isoOfDay(prev), minutes: r[1], wage: r[2],
-      earned: isNum(r[3]) ? r[3] : earnedOf(r[1], r[2]),
-      at: new Date(baseAt + i * 1000).toISOString()
-    };
-  });
-  prev = 0;
-  const adjustments = c.a.map((r, i) => {
-    if (!Array.isArray(r)) bad();
-    prev += r[0];
-    if (!dayOk(prev)) bad();
-    return { date: isoOfDay(prev), delta: r[1], at: new Date(baseAt + (500000 + i) * 1000).toISOString() };
-  });
-  return {
-    app: APP_ID, schemaVersion: SCHEMA,
-    goal: {
-      baseSavings, target, deadline: isoOfDay(deadlineDay), hourlyWage, closingDay, payDay,
-      createdAt: isNum(created) && created > 0 ? new Date(created * 1000).toISOString() : ''
-    },
-    shifts, adjustments
-  };
-}
-
-async function encodePayload(s) {
-  const json = new TextEncoder().encode(JSON.stringify(toCompact(s)));
-  if (hasCompression) return 'z' + toB64u(await runStream(new CompressionStream('deflate'), json));
-  return 'j' + toB64u(json);
-}
-async function decodePayload(p) {
-  let bytes;
-  try {
-    const body = fromB64u(p.slice(1));
-    if (p[0] === 'j') bytes = body;
-    else if (p[0] === 'z') {
-      if (!hasCompression) throw new Error('このブラウザは、圧縮されたQRデータの展開に対応していません。');
-      bytes = await runStream(new DecompressionStream('deflate'), body);
-    } else throw new Error('QRのデータ形式が正しくありません。');
-  } catch (e) {
-    throw new Error(/^(このブラウザ|QRのデータ形式)/.test(e.message) ? e.message : 'QRのデータを展開できませんでした。');
-  }
-  let obj;
-  try { obj = JSON.parse(new TextDecoder().decode(bytes)); }
-  catch (_) { throw new Error('QRのデータを読み取れませんでした。'); }
-  return fromCompact(obj);
-}
-function makeChunks(payload) {
-  const total = Math.ceil(payload.length / QR_CHUNK);
-  const sid = Math.random().toString(36).slice(2, 8).padEnd(6, '0');
-  const out = [];
-  for (let i = 0; i < total; i++) out.push(`SP1.${sid}.${i + 1}.${total}.${payload.slice(i * QR_CHUNK, (i + 1) * QR_CHUNK)}`);
-  return out;
-}
-
 /* --- 書き出し --- */
 const dlgQrExport = $('#dlgQrExport');
 let qrChunks = [], qrIdx = 0, qrTimer = null;
