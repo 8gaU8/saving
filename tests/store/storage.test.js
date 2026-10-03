@@ -27,7 +27,9 @@ test('壊れたデータは :broken に退避して null', () => {
 });
 
 test('保存の失敗・成功で storageOK が切り替わる', () => {
-  const spy = vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => { throw new Error('quota'); });
+  const spy = vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+    throw new Error('quota');
+  });
   st.probe();
   expect(st.storageOK).toBe(false);
   spy.mockRestore();
@@ -36,7 +38,9 @@ test('保存の失敗・成功で storageOK が切り替わる', () => {
 });
 
 test('getItem が例外なら storageOK=false で null', () => {
-  vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => { throw new Error('denied'); });
+  vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
+    throw new Error('denied');
+  });
   expect(st.load()).toBeNull();
   expect(st.storageOK).toBe(false);
 });

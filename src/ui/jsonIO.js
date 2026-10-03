@@ -26,15 +26,18 @@ export function init() {
   $('#importBtn').addEventListener('click', () => fileInput.click());
   $('#setupImport').addEventListener('click', () => fileInput.click());
   fileInput.addEventListener('change', async () => {
-    const file = fileInput.files && fileInput.files[0];
+    const file = fileInput.files?.[0];
     fileInput.value = '';
     if (!file) return;
     dlgSettings.close();
     let next;
     try {
       let obj;
-      try { obj = JSON.parse(await file.text()); }
-      catch (_) { throw new Error('JSONとして読み取れませんでした。'); }
+      try {
+        obj = JSON.parse(await file.text());
+      } catch (_) {
+        throw new Error('JSONとして読み取れませんでした。');
+      }
       next = normalizeState(obj);
     } catch (err) {
       toast(err.message || '読み込みに失敗しました。', true);

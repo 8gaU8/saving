@@ -16,66 +16,139 @@ const waitFor = (fn) => vi.waitFor(fn, { timeout: 10000, interval: 20 });
 // 140件の勤務（約7か月）、修正2件、導出と違う earned 1件
 const shifts = [];
 for (let i = 0; i < 140; i++) {
-  const d = new Date(2026, 2, 1); d.setDate(d.getDate() + Math.floor(i * 1.5));
+  const d = new Date(2026, 2, 1);
+  d.setDate(d.getDate() + Math.floor(i * 1.5));
   const date = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-  const minutes = 180 + (i * 37) % 300;
+  const minutes = 180 + ((i * 37) % 300);
   const wage = i < 70 ? 1100 : 1150;
-  shifts.push({ id: 'id' + i, date, minutes, wage, earned: Math.round(minutes * wage / 60), at: new Date(Date.UTC(2026, 2, 1, 11, 0, i)).toISOString() });
+  shifts.push({
+    id: 'id' + i,
+    date,
+    minutes,
+    wage,
+    earned: Math.round((minutes * wage) / 60),
+    at: new Date(Date.UTC(2026, 2, 1, 11, 0, i)).toISOString(),
+  });
 }
 shifts[10].earned += 7;
-shifts.push({ id: 'dup1', date: '2026-09-20', minutes: 120, wage: 1150, earned: 2300, at: '2026-09-20T10:00:00.000Z' });
-shifts.push({ id: 'dup2', date: '2026-09-20', minutes: 90, wage: 1150, earned: 1725, at: '2026-09-20T11:00:00.000Z' });
+shifts.push({
+  id: 'dup1',
+  date: '2026-09-20',
+  minutes: 120,
+  wage: 1150,
+  earned: 2300,
+  at: '2026-09-20T10:00:00.000Z',
+});
+shifts.push({
+  id: 'dup2',
+  date: '2026-09-20',
+  minutes: 90,
+  wage: 1150,
+  earned: 1725,
+  at: '2026-09-20T11:00:00.000Z',
+});
 const orig = {
-  app: 'savings-pace', schemaVersion: 1,
-  goal: { baseSavings: 123456, target: 600000, deadline: '2027-03-31', hourlyWage: 1150.5, closingDay: 31, payDay: 25, createdAt: '2026-02-20T01:02:03.000Z' },
+  app: 'savings-pace',
+  schemaVersion: 1,
+  goal: {
+    baseSavings: 123456,
+    target: 600000,
+    deadline: '2027-03-31',
+    hourlyWage: 1150.5,
+    closingDay: 31,
+    payDay: 25,
+    createdAt: '2026-02-20T01:02:03.000Z',
+  },
   shifts,
   adjustments: [
     { id: 'a1', date: '2026-05-05', delta: -15000, at: '2026-05-05T09:00:00.000Z' },
-    { id: 'a2', date: '2026-08-01', delta: 4200, at: '2026-08-01T09:00:00.000Z' }],
+    { id: 'a2', date: '2026-08-01', delta: 4200, at: '2026-08-01T09:00:00.000Z' },
+  ],
 };
-const tiny = { app: 'savings-pace', schemaVersion: 1, goal: { baseSavings: 0, target: 1000, deadline: '2027-01-01', hourlyWage: 1000, closingDay: 31, payDay: 25, createdAt: '' }, shifts: [], adjustments: [] };
+const tiny = {
+  app: 'savings-pace',
+  schemaVersion: 1,
+  goal: {
+    baseSavings: 0,
+    target: 1000,
+    deadline: '2027-01-01',
+    hourlyWage: 1000,
+    closingDay: 31,
+    payDay: 25,
+    createdAt: '',
+  },
+  shifts: [],
+  adjustments: [],
+};
 
-const reducedMotion = (w) => { w.matchMedia = () => ({ matches: true }); };
+const reducedMotion = (w) => {
+  w.matchMedia = () => ({ matches: true });
+};
 function camera(w, getUserMedia) {
   reducedMotion(w);
   w.__camStopped = 0;
   Object.defineProperty(w.navigator, 'mediaDevices', {
     configurable: true,
-    value: { getUserMedia: getUserMedia || (async () => ({ getTracks: () => [{ stop() { w.__camStopped++; } }] })) },
+    value: {
+      getUserMedia:
+        getUserMedia ||
+        (async () => ({
+          getTracks: () => [
+            {
+              stop() {
+                w.__camStopped++;
+              },
+            },
+          ],
+        })),
+    },
   });
   w.HTMLMediaElement.prototype.play = () => Promise.resolve();
   w.HTMLMediaElement.prototype.pause = () => {};
   Object.defineProperty(w.HTMLMediaElement.prototype, 'readyState', { get: () => 4 });
   Object.defineProperty(w.HTMLVideoElement.prototype, 'videoWidth', { get: () => 640 });
   Object.defineProperty(w.HTMLVideoElement.prototype, 'videoHeight', { get: () => 480 });
-  w.HTMLCanvasElement.prototype.getContext = () => ({ drawImage() {}, getImageData: () => ({ data: new Uint8ClampedArray(4) }) });
+  w.HTMLCanvasElement.prototype.getContext = () => ({
+    drawImage() {},
+    getImageData: () => ({ data: new Uint8ClampedArray(4) }),
+  });
 }
 
 // 表示中の QR（SVG）をラスタライズして本物の jsqr で読む
 function readSvg(w) {
   const svg = w.document.querySelector('#qrView svg');
   const size = +svg.getAttribute('viewBox').split(' ')[2];
-  const scale = 6, W = size * scale;
+  const scale = 6,
+    W = size * scale;
   const px = new Uint8ClampedArray(W * W * 4).fill(255);
-  for (const m of svg.querySelector('path').getAttribute('d').matchAll(/M(\d+) (\d+)h(\d+)v1/g)) {
-    const x0 = +m[1], y = +m[2], len = +m[3];
-    for (let yy = y * scale; yy < (y + 1) * scale; yy++) for (let xx = x0 * scale; xx < (x0 + len) * scale; xx++) {
-      const o = (yy * W + xx) * 4; px[o] = px[o + 1] = px[o + 2] = 0;
-    }
+  for (const m of svg
+    .querySelector('path')
+    .getAttribute('d')
+    .matchAll(/M(\d+) (\d+)h(\d+)v1/g)) {
+    const x0 = +m[1],
+      y = +m[2],
+      len = +m[3];
+    for (let yy = y * scale; yy < (y + 1) * scale; yy++)
+      for (let xx = x0 * scale; xx < (x0 + len) * scale; xx++) {
+        const o = (yy * W + xx) * 4;
+        px[o] = px[o + 1] = px[o + 2] = 0;
+      }
   }
   const code = realJsQR(px, W, W);
-  return code && code.data;
+  return code?.data;
 }
 
 const strip = (s) => ({
   goal: s.goal,
-  shifts: s.shifts.map(({ date, minutes, wage, earned }) => ({ date, minutes, wage, earned }))
+  shifts: s.shifts
+    .map(({ date, minutes, wage, earned }) => ({ date, minutes, wage, earned }))
     .sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : a.minutes - b.minutes)),
   adjustments: s.adjustments.map(({ date, delta }) => ({ date, delta })),
 });
-const screen = (w) => ['#savingsAmount', '#pendingLine', '#needBody', '#historyList'].map((s) => txt(w, s));
+const screen = (w) =>
+  ['#savingsAmount', '#pendingLine', '#needBody', '#historyList'].map((s) => txt(w, s));
 
-let decoded = [];
+const decoded = [];
 let exportedScreen;
 
 test('QR 書き出し: 全枚が本物のデコーダで読め、ヘッダとセッション ID が揃う', async () => {
@@ -89,15 +162,21 @@ test('QR 書き出し: 全枚が本物のデコーダで読め、ヘッダとセ
   expect(total).toBeGreaterThan(1);
   expect($('#qrControls').hidden).toBe(false);
   expect(txt(w, '#qrPlay')).toBe('再生'); // reduced motion では自動再生しない
-  expect(txt(w, '#qrHint')).toBe(`読み込む端末で「QRで読み込み」を開き、カメラを向けてください。QRは全${total}枚で、自動で切り替わります。すべて読み取れるまで、この画面を開いたままにしてください。`);
+  expect(txt(w, '#qrHint')).toBe(
+    `読み込む端末で「QRで読み込み」を開き、カメラを向けてください。QRは全${total}枚で、自動で切り替わります。すべて読み取れるまで、この画面を開いたままにしてください。`,
+  );
   for (let i = 0; i < total; i++) {
-    expect($('#qrView').getAttribute('aria-label')).toBe(`データのQRコード（${i + 1}枚目、全${total}枚）`);
+    expect($('#qrView').getAttribute('aria-label')).toBe(
+      `データのQRコード（${i + 1}枚目、全${total}枚）`,
+    );
     decoded.push(readSvg(w));
     if (i < total - 1) $('#qrNext').click();
   }
   expect(decoded.every(Boolean)).toBe(true);
   expect(decoded.every((t) => /^SP1\.[0-9a-z]{6}\.\d+\.\d+\./.test(t))).toBe(true);
-  expect(decoded.map((t) => t.split('.')[2])).toEqual(Array.from({ length: total }, (_, i) => String(i + 1)));
+  expect(decoded.map((t) => t.split('.')[2])).toEqual(
+    Array.from({ length: total }, (_, i) => String(i + 1)),
+  );
   expect(new Set(decoded.map((t) => t.split('.')[1])).size).toBe(1);
   $('#qrNext').click();
   expect(txt(w, '#qrCount')).toBe(`1 / ${total}`);
@@ -109,9 +188,15 @@ test('QR 書き出し: 全枚が本物のデコーダで読め、ヘッダとセ
 });
 
 test('QR 書き出し: 自動再生（1.6秒ごと）と一時停止', async () => {
-  vi.useFakeTimers({ now: new Date(2026, 9, 3, 12), toFake: ['Date', 'setInterval', 'clearInterval'] });
+  vi.useFakeTimers({
+    now: new Date(2026, 9, 3, 12),
+    toFake: ['Date', 'setInterval', 'clearInterval'],
+  });
   const w = await boot(orig);
-  vi.useFakeTimers({ now: new Date(2026, 9, 3, 12), toFake: ['Date', 'setInterval', 'clearInterval'] });
+  vi.useFakeTimers({
+    now: new Date(2026, 9, 3, 12),
+    toFake: ['Date', 'setInterval', 'clearInterval'],
+  });
   const $ = (s) => w.document.querySelector(s);
   $('#openSettings').click();
   $('#qrExportBtn').click();
@@ -134,7 +219,12 @@ test('QR 書き出し: 自動再生（1.6秒ごと）と一時停止', async () 
 
 test('QR 読み込み（カメラ）: 順不同・重複・無関係な QR が混ざっても復元できる', async () => {
   const shuffled = [...decoded].reverse();
-  q.queue = ['https://example.com/not-ours', ...shuffled.slice(0, 2), shuffled[0], ...shuffled.slice(2)];
+  q.queue = [
+    'https://example.com/not-ours',
+    ...shuffled.slice(0, 2),
+    shuffled[0],
+    ...shuffled.slice(2),
+  ];
   const w = await boot(null, undefined, camera);
   const $ = (s) => w.document.querySelector(s);
   expect($('#setupView').hidden).toBe(false);
@@ -173,7 +263,8 @@ test('QR 読み込み: 壊れたデータはエラーを残したままカメラ
   expect($('#setupView').hidden).toBe(false);
   expect($('#dlgQrImport').open).toBe(true);
   expect(w.document.querySelector('#qrDots').innerHTML).toBe('');
-  await tick(); await tick();
+  await tick();
+  await tick();
   expect($('#qrStatus').classList.contains('err')).toBe(true); // カメラ再開後もメッセージを残す
   $('#dlgQrImport [data-close]').click(); // 再開したカメラのループを止める（キューを共有しているため）
 });
@@ -200,7 +291,9 @@ test('QR 書き出し: 小さいデータは1枚で、切り替えボタンな�
   await waitFor(() => expect($('#dlgQrExport').open).toBe(true));
   expect($('#qrControls').hidden).toBe(true);
   expect(txt(w, '#qrCount')).toBe('1枚だけです');
-  expect(txt(w, '#qrHint')).toBe('読み込む端末で「QRで読み込み」を開き、このQRにカメラを向けてください。');
+  expect(txt(w, '#qrHint')).toBe(
+    '読み込む端末で「QRで読み込み」を開き、このQRにカメラを向けてください。',
+  );
   expect(readSvg(w)).toMatch(/^SP1\.[0-9a-z]{6}\.1\.1\./);
 });
 
@@ -208,28 +301,61 @@ test('QR 読み込み: カメラが使えない / 許可されない', async () 
   let w = await boot(null, undefined, reducedMotion);
   w.document.querySelector('#setupQr').click();
   await tick();
-  expect(txt(w, '#qrStatus')).toBe('このブラウザではカメラを使えません。「画像から読み込む」をお使いください。');
+  expect(txt(w, '#qrStatus')).toBe(
+    'このブラウザではカメラを使えません。「画像から読み込む」をお使いください。',
+  );
   expect(w.document.querySelector('#qrStatus').classList.contains('err')).toBe(true);
 
-  w = await boot(null, undefined, (w) => camera(w, async () => { throw Object.assign(new Error('x'), { name: 'NotAllowedError' }); }));
+  w = await boot(null, undefined, (w) =>
+    camera(w, async () => {
+      throw Object.assign(new Error('x'), { name: 'NotAllowedError' });
+    }),
+  );
   w.document.querySelector('#setupQr').click();
-  await waitFor(() => expect(txt(w, '#qrStatus')).toBe('カメラの使用が許可されていません。ブラウザの設定で許可するか、「画像から読み込む」をお使いください。'));
+  await waitFor(() =>
+    expect(txt(w, '#qrStatus')).toBe(
+      'カメラの使用が許可されていません。ブラウザの設定で許可するか、「画像から読み込む」をお使いください。',
+    ),
+  );
 
-  w = await boot(null, undefined, (w) => camera(w, async () => { throw new Error('busy'); }));
+  w = await boot(null, undefined, (w) =>
+    camera(w, async () => {
+      throw new Error('busy');
+    }),
+  );
   w.document.querySelector('#setupQr').click();
-  await waitFor(() => expect(txt(w, '#qrStatus')).toBe('カメラを起動できませんでした。「画像から読み込む」をお使いください。'));
+  await waitFor(() =>
+    expect(txt(w, '#qrStatus')).toBe(
+      'カメラを起動できませんでした。「画像から読み込む」をお使いください。',
+    ),
+  );
 });
 
 test('QR 読み込み（画像）: 複数選択、読めない画像、残り枚数', async () => {
   const w = await boot(null, undefined, (w) => {
-    camera(w, async () => { throw new Error('no camera'); });
-    w.Image = class { set src(_) { setTimeout(() => this.onload()); } get naturalWidth() { return 3000; } get naturalHeight() { return 1500; } };
+    camera(w, async () => {
+      throw new Error('no camera');
+    });
+    w.Image = class {
+      set src(_) {
+        setTimeout(() => this.onload());
+      }
+      get naturalWidth() {
+        return 3000;
+      }
+      get naturalHeight() {
+        return 1500;
+      }
+    };
   });
   vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:x');
   vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {});
   const $ = (s) => w.document.querySelector(s);
   const pick = (n) => {
-    Object.defineProperty($('#qrImageInput'), 'files', { configurable: true, value: Array.from({ length: n }, () => ({})) });
+    Object.defineProperty($('#qrImageInput'), 'files', {
+      configurable: true,
+      value: Array.from({ length: n }, () => ({})),
+    });
     $('#qrImageInput').dispatchEvent(new w.Event('change'));
   };
   $('#setupQr').click();
@@ -237,11 +363,17 @@ test('QR 読み込み（画像）: 複数選択、読めない画像、残り枚
   q.queue = [];
   const real = q.queue;
   pick(1);
-  await waitFor(() => expect(txt(w, '#qrStatus')).toBe('画像からQRコードを読み取れませんでした。QR全体が写っているか確認してください。'));
+  await waitFor(() =>
+    expect(txt(w, '#qrStatus')).toBe(
+      '画像からQRコードを読み取れませんでした。QR全体が写っているか確認してください。',
+    ),
+  );
   expect(real).toHaveLength(0);
   q.queue = [decoded[0]];
   pick(1);
-  await waitFor(() => expect(txt(w, '#qrStatus')).toBe(`1枚のQRを読み取りました。あと${decoded.length - 1}枚です。`));
+  await waitFor(() =>
+    expect(txt(w, '#qrStatus')).toBe(`1枚のQRを読み取りました。あと${decoded.length - 1}枚です。`),
+  );
   q.queue = decoded.slice(1);
   pick(decoded.length - 1);
   await waitFor(() => expect($('#mainView').hidden).toBe(false));

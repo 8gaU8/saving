@@ -13,7 +13,10 @@ import { toast } from './toast.js';
 function updatePreview() {
   const el = $('#shiftPreview');
   const r = formMinutes($('#shiftH').value, $('#shiftM').value);
-  if (r.error || !state) { el.textContent = ''; return; }
+  if (r.error || !state) {
+    el.textContent = '';
+    return;
+  }
   const editing = ui.editingId ? state.shifts.find((s) => s.id === ui.editingId) : null;
   const wage = editing ? editing.wage : state.goal.hourlyWage;
   el.textContent = `${fmtHM(r.min)} → +${yen(earnedOf(r.min, wage))}`;
@@ -44,7 +47,10 @@ export function startEdit(id) {
   $('#shiftSubmit').textContent = '更新する';
   $('#shiftCancel').hidden = false;
   updatePreview();
-  $('#shiftForm').scrollIntoView({ behavior: reducedMotion() ? 'auto' : 'smooth', block: 'center' });
+  $('#shiftForm').scrollIntoView({
+    behavior: reducedMotion() ? 'auto' : 'smooth',
+    block: 'center',
+  });
   $('#shiftH').focus({ preventScroll: true });
 }
 
@@ -53,21 +59,36 @@ export function init() {
     e.preventDefault();
     const err = $('#shiftError');
     const date = $('#shiftDate').value;
-    if (!parseISO(date)) { err.textContent = '日付を選んでください。'; return; }
-    if (isoDay(date) > todayDay()) { err.textContent = '今日より先の日付は記録できません。'; return; }
+    if (!parseISO(date)) {
+      err.textContent = '日付を選んでください。';
+      return;
+    }
+    if (isoDay(date) > todayDay()) {
+      err.textContent = '今日より先の日付は記録できません。';
+      return;
+    }
     const r = formMinutes($('#shiftH').value, $('#shiftM').value);
-    if (r.error) { err.textContent = r.error; return; }
+    if (r.error) {
+      err.textContent = r.error;
+      return;
+    }
     err.textContent = '';
     if (ui.editingId) {
       const s = state.shifts.find((x) => x.id === ui.editingId);
-      if (s) { s.date = date; s.minutes = r.min; s.earned = earnedOf(r.min, s.wage); }
+      if (s) {
+        s.date = date;
+        s.minutes = r.min;
+        s.earned = earnedOf(r.min, s.wage);
+      }
       toast('勤務を更新しました');
     } else {
       state.shifts.push({
-        id: newId(), date, minutes: r.min,
+        id: newId(),
+        date,
+        minutes: r.min,
         wage: state.goal.hourlyWage,
         earned: earnedOf(r.min, state.goal.hourlyWage),
-        at: new Date().toISOString()
+        at: new Date().toISOString(),
       });
       toast('勤務を記録しました');
     }

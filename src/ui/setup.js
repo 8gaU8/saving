@@ -15,20 +15,36 @@ export function init() {
     const wage = readNum($('#sWage').value);
     const deadline = $('#sDeadline').value;
     const err = $('#setupError');
-    if (!(cur >= 0)) { err.textContent = 'いまの貯金は0円以上の数字で入力してください。'; return; }
+    if (!(cur >= 0)) {
+      err.textContent = 'いまの貯金は0円以上の数字で入力してください。';
+      return;
+    }
     const closing = readNum($('#sClosing').value);
     const payDay = readNum($('#sPayDay').value);
     const ge = goalError({ target, deadline, wage, closing, payDay }, true, todayDay());
-    if (ge) { err.textContent = ge; return; }
-    if (!(target > cur)) { err.textContent = '目標金額は、いまの貯金より大きくしてください。'; return; }
+    if (ge) {
+      err.textContent = ge;
+      return;
+    }
+    if (!(target > cur)) {
+      err.textContent = '目標金額は、いまの貯金より大きくしてください。';
+      return;
+    }
     err.textContent = '';
     setState({
-      app: APP_ID, schemaVersion: SCHEMA,
+      app: APP_ID,
+      schemaVersion: SCHEMA,
       goal: {
-        baseSavings: Math.round(cur), target: Math.round(target),
-        deadline, hourlyWage: wage, closingDay: closing, payDay, createdAt: new Date().toISOString()
+        baseSavings: Math.round(cur),
+        target: Math.round(target),
+        deadline,
+        hourlyWage: wage,
+        closingDay: closing,
+        payDay,
+        createdAt: new Date().toISOString(),
       },
-      shifts: [], adjustments: []
+      shifts: [],
+      adjustments: [],
     });
     save();
     ui.historyLimit = PAGE_SIZE;

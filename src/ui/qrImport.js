@@ -5,8 +5,9 @@ import { QR_MAX_CHUNKS, QR_RE, decodePayload } from '../core/qrCodec.js';
 import { adoptState } from './adopt.js';
 
 const dlgQrImport = $('#dlgQrImport');
-let scan = null;        // { sid, total, parts: Map(番号 -> データ) }
-let camStream = null, scanTimer = null;
+let scan = null; // { sid, total, parts: Map(番号 -> データ) }
+let camStream = null,
+  scanTimer = null;
 const scanCanvas = document.createElement('canvas');
 
 function setQrStatus(msg, isErr = false) {
@@ -16,7 +17,10 @@ function setQrStatus(msg, isErr = false) {
 }
 function renderDots() {
   const el = $('#qrDots');
-  if (!scan) { el.innerHTML = ''; return; }
+  if (!scan) {
+    el.innerHTML = '';
+    return;
+  }
   let h = '';
   for (let i = 1; i <= scan.total; i++) h += `<i class="${scan.parts.has(i) ? 'on' : ''}"></i>`;
   el.innerHTML = h;
@@ -24,10 +28,13 @@ function renderDots() {
 function stopCamera() {
   clearTimeout(scanTimer);
   scanTimer = null;
-  if (camStream) camStream.getTracks().forEach((t) => t.stop());
+  if (camStream)
+    camStream.getTracks().forEach((t) => {
+      t.stop();
+    });
   camStream = null;
   const v = $('#qrVideo');
-  v.pause && v.pause();
+  v.pause?.();
   v.srcObject = null;
 }
 
@@ -35,7 +42,10 @@ function stopCamera() {
 function feedQr(text) {
   const m = QR_RE.exec(String(text).trim());
   if (!m) return false;
-  const sid = m[1], idx = +m[2], total = +m[3], part = m[4];
+  const sid = m[1],
+    idx = +m[2],
+    total = +m[3],
+    part = m[4];
   if (idx < 1 || idx > total || total > QR_MAX_CHUNKS) return false;
   if (!scan || scan.sid !== sid || scan.total !== total) scan = { sid, total, parts: new Map() };
   if (!scan.parts.has(idx)) {
@@ -71,7 +81,8 @@ function scanTick() {
   const v = $('#qrVideo');
   if (v.readyState >= 2 && v.videoWidth) {
     const sc = Math.min(1, 960 / v.videoWidth);
-    const w = Math.round(v.videoWidth * sc), h = Math.round(v.videoHeight * sc);
+    const w = Math.round(v.videoWidth * sc),
+      h = Math.round(v.videoHeight * sc);
     scanCanvas.width = w;
     scanCanvas.height = h;
     const cx = scanCanvas.getContext('2d', { willReadFrequently: true });
@@ -80,19 +91,22 @@ function scanTick() {
       const img = cx.getImageData(0, 0, w, h);
       const code = jsQR(img.data, w, h, { inversionAttempts: 'dontInvert' });
       if (code) feedQr(code.data);
-    } catch (_) { /* 1フレームの失敗では止めない */ }
+    } catch (_) {
+      /* 1フレームの失敗では止めない */
+    }
   }
   if (camStream) scanTimer = setTimeout(scanTick, 120);
 }
 
 async function startCamera(keepStatus = false) {
-  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+  if (!navigator.mediaDevices?.getUserMedia) {
     setQrStatus('このブラウザではカメラを使えません。「画像から読み込む」をお使いください。', true);
     return;
   }
   try {
     camStream = await navigator.mediaDevices.getUserMedia({
-      video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 } }, audio: false
+      video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 } },
+      audio: false,
     });
     const v = $('#qrVideo');
     v.srcObject = camStream;
@@ -103,7 +117,9 @@ async function startCamera(keepStatus = false) {
     setQrStatus(
       e && e.name === 'NotAllowedError'
         ? 'カメラの使用が許可されていません。ブラウザの設定で許可するか、「画像から読み込む」をお使いください。'
-        : 'カメラを起動できませんでした。「画像から読み込む」をお使いください。', true);
+        : 'カメラを起動できませんでした。「画像から読み込む」をお使いください。',
+      true,
+    );
     return;
   }
   scanTick();
@@ -130,11 +146,14 @@ async function decodeImageFile(file) {
     const cx = scanCanvas.getContext('2d', { willReadFrequently: true });
     for (const maxSide of [2000, 1000, 640]) {
       const sc = Math.min(1, maxSide / Math.max(img.naturalWidth, img.naturalHeight));
-      const w = Math.max(1, Math.round(img.naturalWidth * sc)), h = Math.max(1, Math.round(img.naturalHeight * sc));
+      const w = Math.max(1, Math.round(img.naturalWidth * sc)),
+        h = Math.max(1, Math.round(img.naturalHeight * sc));
       scanCanvas.width = w;
       scanCanvas.height = h;
       cx.drawImage(img, 0, 0, w, h);
-      const code = jsQR(cx.getImageData(0, 0, w, h).data, w, h, { inversionAttempts: 'attemptBoth' });
+      const code = jsQR(cx.getImageData(0, 0, w, h).data, w, h, {
+        inversionAttempts: 'attemptBoth',
+      });
       if (code) return code.data;
     }
     return null;
@@ -144,7 +163,10 @@ async function decodeImageFile(file) {
 }
 
 export function init() {
-  dlgQrImport.addEventListener('close', () => { stopCamera(); scan = null; });
+  dlgQrImport.addEventListener('close', () => {
+    stopCamera();
+    scan = null;
+  });
   $('#qrImportBtn').addEventListener('click', openQrImport);
   $('#setupQr').addEventListener('click', openQrImport);
   $('#qrPickImage').addEventListener('click', () => $('#qrImageInput').click());
@@ -156,13 +178,22 @@ export function init() {
     for (const f of files) {
       setQrStatus('画像を読み取っています…');
       let text = null;
-      try { text = await decodeImageFile(f); } catch (_) { /* 次の画像へ */ }
+      try {
+        text = await decodeImageFile(f);
+      } catch (_) {
+        /* 次の画像へ */
+      }
       if (text && feedQr(text)) found++;
       if (!dlgQrImport.open) return; // 読み取り完了で閉じた
     }
     setQrStatus(
-      found ? `${found}枚のQRを読み取りました。` + (scan && scan.parts.size < scan.total ? `あと${scan.total - scan.parts.size}枚です。` : '')
-            : '画像からQRコードを読み取れませんでした。QR全体が写っているか確認してください。',
-      !found);
+      found
+        ? `${found}枚のQRを読み取りました。` +
+            (scan && scan.parts.size < scan.total
+              ? `あと${scan.total - scan.parts.size}枚です。`
+              : '')
+        : '画像からQRコードを読み取れませんでした。QR全体が写っているか確認してください。',
+      !found,
+    );
   });
 }

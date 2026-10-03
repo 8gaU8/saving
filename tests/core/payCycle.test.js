@@ -1,5 +1,14 @@
 import { test, expect } from 'vitest';
-import { dayNum, isoDay, isoOfDay, parseISO, partsOfDay, dim, addMonth, monthEndDay } from '../../src/core/dates.js';
+import {
+  dayNum,
+  isoDay,
+  isoOfDay,
+  parseISO,
+  partsOfDay,
+  dim,
+  addMonth,
+  monthEndDay,
+} from '../../src/core/dates.js';
 import { payDayOf, lastCountedWorkDay } from '../../src/core/payCycle.js';
 
 const g = (closingDay, payDay) => ({ closingDay, payDay });

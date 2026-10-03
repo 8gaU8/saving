@@ -9,7 +9,10 @@ export function confirmDialog({ title, message, ok = 'OK', danger = false }) {
     okBtn.textContent = ok;
     okBtn.className = 'btn ' + (danger ? 'danger-solid' : 'primary');
     let result = false;
-    const onOk = () => { result = true; d.close(); };
+    const onOk = () => {
+      result = true;
+      d.close();
+    };
     const onClose = () => {
       okBtn.removeEventListener('click', onOk);
       d.removeEventListener('close', onClose);
@@ -27,7 +30,10 @@ export function init() {
 
   document.addEventListener('click', (e) => {
     const closer = e.target.closest('[data-close]');
-    if (closer) { closer.closest('dialog').close(); return; }
+    if (closer) {
+      closer.closest('dialog').close();
+      return;
+    }
     if (e.target instanceof HTMLDialogElement) e.target.close(); // 背景クリックで閉じる
   });
 }

@@ -27,7 +27,8 @@ const optNum = (v) => (String(v).trim() === '' ? 0 : Number(v));
 export function formMinutes(hValue, mValue) {
   const h = optNum(hValue);
   const m = optNum(mValue);
-  if (!Number.isFinite(h) || !Number.isFinite(m)) return { error: '勤務時間は数字で入力してください。' };
+  if (!Number.isFinite(h) || !Number.isFinite(m))
+    return { error: '勤務時間は数字で入力してください。' };
   if (h < 0 || m < 0) return { error: '勤務時間は0以上で入力してください。' };
   if (m >= 60) return { error: '分は0〜59で入力してください。' };
   const min = Math.round(h * 60) + Math.round(m);
