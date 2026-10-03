@@ -1,0 +1,14 @@
+/* QR */
+.qr-box { display: grid; place-items: center; }
+.qr-view { width: min(100%, 320px); aspect-ratio: 1; background: #fff; border-radius: 12px; overflow: hidden; border: 1px solid var(--line); }
+.qr-view svg { display: block; width: 100%; height: 100%; }
+.qr-count { text-align: center; font-weight: 700; font-variant-numeric: tabular-nums; min-height: 1.7em; }
+.qr-cam { position: relative; width: 100%; aspect-ratio: 4 / 3; background: #000; border-radius: 12px; overflow: hidden; }
+.qr-cam video { display: block; width: 100%; height: 100%; object-fit: cover; }
+.qr-cam::after { content: ""; position: absolute; inset: 16%; border: 2px solid rgba(255, 255, 255, .85); border-radius: 12px; pointer-events: none; }
+.qr-status { font-size: 14px; font-weight: 700; min-height: 1.7em; }
+.qr-status.err { color: var(--danger); }
+.qr-dots { display: flex; flex-wrap: wrap; gap: 4px; }
+.qr-dots:empty { display: none; }
+.qr-dots i { width: 14px; height: 14px; border-radius: 4px; background: var(--line); }
+.qr-dots i.on { background: var(--accent); }
