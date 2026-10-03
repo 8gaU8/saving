@@ -16,7 +16,8 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-export async function boot(state, now = FIXED) {
+// state: オブジェクト（JSON 化して保存）か生の文字列。before(w) はモジュール読み込み前に呼ぶ
+export async function boot(state, now = FIXED, before) {
   vi.useFakeTimers({ now, toFake: ['Date'] });
   const w = new JSDOM(html, { url: 'https://x.example/', pretendToBeVisual: true }).window;
   w.HTMLDialogElement.prototype.showModal = function () { this.setAttribute('open', ''); };
@@ -24,7 +25,8 @@ export async function boot(state, now = FIXED) {
   w.HTMLElement.prototype.scrollIntoView = () => {};
   w.scrollTo = () => {};
   w.matchMedia = () => ({ matches: false });
-  if (state) w.localStorage.setItem('savings-pace:v1', JSON.stringify(state));
+  if (state) w.localStorage.setItem('savings-pace:v1', typeof state === 'string' ? state : JSON.stringify(state));
+  if (before) before(w);
   for (const k of GLOBALS) vi.stubGlobal(k, w[k]);
   vi.resetModules();
   await import('../../src/main.js');

@@ -10,8 +10,9 @@ import { compute } from './core/compute.js';
 import { APP_ID, SCHEMA, newId, normalizeState } from './core/schema.js';
 import { readNum, goalError, formMinutes } from './core/validation.js';
 import { QR_MAX_CHUNKS, QR_RE, encodePayload, decodePayload, makeChunks } from './core/qrCodec.js';
+import { storageOK, probe, removeSaved } from './store/storage.js';
+import { state, setState, persist, reload, watchOtherTabs } from './store/state.js';
 
-const STORAGE_KEY = 'savings-pace:v1';
 const PAGE_SIZE = 20;
 
 const $ = (sel, root = document) => root.querySelector(sel);
@@ -19,28 +20,14 @@ const reducedMotion = () => window.matchMedia('(prefers-reduced-motion: reduce)'
 const fmtISO = (s) => fmtISOIn(s, now().y);
 
 /* ---------- 状態 ---------- */
-let state = null;
 let editingId = null;
 let historyLimit = PAGE_SIZE;
-let storageOK = true;
 let defaultDate = '';
 
 const savingsNow = (s) => money(s, todayDay()).cash;
 
-function load() {
-  let raw = null;
-  try { raw = localStorage.getItem(STORAGE_KEY); } catch (e) { storageOK = false; return null; }
-  if (!raw) return null;
-  try {
-    return normalizeState(JSON.parse(raw));
-  } catch (e) {
-    try { localStorage.setItem(STORAGE_KEY + ':broken', raw); } catch (_) { /* ignore */ }
-    return null;
-  }
-}
 function save() {
-  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); storageOK = true; }
-  catch (e) { storageOK = false; }
+  persist();
   $('#storageWarn').hidden = storageOK;
 }
 
@@ -327,14 +314,14 @@ $('#setupForm').addEventListener('submit', (e) => {
   if (ge) { err.textContent = ge; return; }
   if (!(target > cur)) { err.textContent = '目標金額は、いまの貯金より大きくしてください。'; return; }
   err.textContent = '';
-  state = {
+  setState({
     app: APP_ID, schemaVersion: SCHEMA,
     goal: {
       baseSavings: Math.round(cur), target: Math.round(target),
       deadline, hourlyWage: wage, closingDay: closing, payDay, createdAt: new Date().toISOString()
     },
     shifts: [], adjustments: []
-  };
+  });
   save();
   historyLimit = PAGE_SIZE;
   resetShiftForm();
@@ -421,7 +408,7 @@ async function adoptState(next) {
     });
     if (!ok) return false;
   }
-  state = next;
+  setState(next);
   save();
   historyLimit = PAGE_SIZE;
   resetShiftForm();
@@ -437,8 +424,8 @@ $('#resetBtn').addEventListener('click', async () => {
     ok: '削除する', danger: true
   });
   if (!ok) return;
-  try { localStorage.removeItem(STORAGE_KEY); } catch (_) { /* ignore */ }
-  state = null;
+  removeSaved();
+  setState(null);
   dlgSettings.close();
   resetShiftForm();
   ['#sCurrent', '#sTarget', '#sWage', '#sDeadline'].forEach((s) => { $(s).value = ''; });
@@ -717,18 +704,15 @@ function toast(msg, isErr = false) {
 }
 
 /* ---------- 起動 ---------- */
-try { localStorage.setItem('__probe', '1'); localStorage.removeItem('__probe'); } catch (e) { storageOK = false; }
-state = load();
+probe();
+reload();
 resetShiftForm();
 render();
 
 // 日付をまたいで開きっぱなしでも、戻ってきたときに計算し直す
 document.addEventListener('visibilitychange', () => { if (!document.hidden) render(); });
 // 別タブでの変更を反映する
-window.addEventListener('storage', (e) => {
-  if (e.key === STORAGE_KEY || e.key === null) {
-    state = load();
-    editingId = null;
-    render();
-  }
+watchOtherTabs(() => {
+  editingId = null;
+  render();
 });
