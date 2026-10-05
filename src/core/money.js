@@ -23,3 +23,6 @@ export function money(s, today) {
   }
   return { cash, pending, pendingCounted, nextPay };
 }
+
+// 勤務フォームから記録する給料: 15分きざみ、端数は切り捨て
+export const payOf = (minutes, wage) => earnedOf(Math.floor(minutes / 15) * 15, wage);

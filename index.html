@@ -116,6 +116,17 @@
               <div class="input-wrap"><input id="shiftM" type="number" inputmode="numeric" min="0" max="59" step="1" placeholder="0" autocomplete="off"><span class="unit">分</span></div>
             </div>
           </div>
+          <div class="field-row">
+            <div class="field">
+              <label for="shiftStart">開始時刻</label>
+              <input id="shiftStart" type="text" placeholder="9:00" autocomplete="off">
+            </div>
+            <div class="field">
+              <label for="shiftEnd">終了時刻</label>
+              <input id="shiftEnd" type="text" placeholder="17:30" autocomplete="off">
+            </div>
+          </div>
+          <p class="hint">開始・終了時刻を入れると、時間・分より優先します。給料は15分きざみで計算し、端数は切り捨てます。</p>
           <p class="preview" id="shiftPreview" aria-live="polite"></p>
           <p class="error" id="shiftError" role="alert"></p>
           <div class="actions">

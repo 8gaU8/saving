@@ -2,24 +2,29 @@ import { $, reducedMotion } from './dom.js';
 import { parseISO, isoDay } from '../core/dates.js';
 import { todayISO, todayDay } from '../core/clock.js';
 import { yen, fmtHM } from '../core/format.js';
-import { earnedOf } from '../core/money.js';
+import { payOf } from '../core/money.js';
 import { newId } from '../core/schema.js';
-import { formMinutes } from '../core/validation.js';
+import { formMinutes, formTimes } from '../core/validation.js';
 import { state } from '../store/state.js';
 import { ui } from './uiState.js';
 import { render, save } from './render.js';
 import { toast } from './toast.js';
 
+// 開始・終了時刻が入っていればそちらを使う
+const readMinutes = () =>
+  formTimes($('#shiftStart').value, $('#shiftEnd').value) ??
+  formMinutes($('#shiftH').value, $('#shiftM').value);
+
 function updatePreview() {
   const el = $('#shiftPreview');
-  const r = formMinutes($('#shiftH').value, $('#shiftM').value);
+  const r = readMinutes();
   if (r.error || !state) {
     el.textContent = '';
     return;
   }
   const editing = ui.editingId ? state.shifts.find((s) => s.id === ui.editingId) : null;
   const wage = editing ? editing.wage : state.goal.hourlyWage;
-  el.textContent = `${fmtHM(r.min)} → +${yen(earnedOf(r.min, wage))}`;
+  el.textContent = `${fmtHM(r.min)} → +${yen(payOf(r.min, wage))}`;
 }
 
 export function resetShiftForm() {
@@ -28,6 +33,8 @@ export function resetShiftForm() {
   ui.defaultDate = todayISO();
   $('#shiftH').value = '';
   $('#shiftM').value = '';
+  $('#shiftStart').value = '';
+  $('#shiftEnd').value = '';
   $('#shiftError').textContent = '';
   $('#shiftPreview').textContent = '';
   $('#formTitle').textContent = '勤務を記録';
@@ -42,6 +49,8 @@ export function startEdit(id) {
   $('#shiftDate').value = s.date;
   $('#shiftH').value = Math.floor(s.minutes / 60);
   $('#shiftM').value = s.minutes % 60;
+  $('#shiftStart').value = '';
+  $('#shiftEnd').value = '';
   $('#shiftError').textContent = '';
   $('#formTitle').textContent = '勤務を編集';
   $('#shiftSubmit').textContent = '更新する';
@@ -67,7 +76,7 @@ export function init() {
       err.textContent = '今日より先の日付は記録できません。';
       return;
     }
-    const r = formMinutes($('#shiftH').value, $('#shiftM').value);
+    const r = readMinutes();
     if (r.error) {
       err.textContent = r.error;
       return;
@@ -78,7 +87,7 @@ export function init() {
       if (s) {
         s.date = date;
         s.minutes = r.min;
-        s.earned = earnedOf(r.min, s.wage);
+        s.earned = payOf(r.min, s.wage);
       }
       toast('勤務を更新しました');
     } else {
@@ -87,7 +96,7 @@ export function init() {
         date,
         minutes: r.min,
         wage: state.goal.hourlyWage,
-        earned: earnedOf(r.min, state.goal.hourlyWage),
+        earned: payOf(r.min, state.goal.hourlyWage),
         at: new Date().toISOString(),
       });
       toast('勤務を記録しました');
@@ -99,4 +108,6 @@ export function init() {
   $('#shiftCancel').addEventListener('click', resetShiftForm);
   $('#shiftH').addEventListener('input', updatePreview);
   $('#shiftM').addEventListener('input', updatePreview);
+  $('#shiftStart').addEventListener('input', updatePreview);
+  $('#shiftEnd').addEventListener('input', updatePreview);
 }

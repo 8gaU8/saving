@@ -326,3 +326,20 @@ test('ダイアログ: data-close と背景クリックで閉じる', async () =
   $('#dlgSavings').click();
   expect($('#dlgSavings').open).toBe(false);
 });
+
+test('勤務を開始・終了時刻で記録: 15分きざみで切り捨て、時間・分より優先', async () => {
+  const w = await boot(sample);
+  const { $, set, submit } = helpers(w);
+  set('#shiftH', '1');
+  set('#shiftStart', '17:00');
+  set('#shiftEnd', '9:00');
+  submit('#shiftForm');
+  expect(txt(w, '#shiftError')).toBe('終了時刻は開始時刻より後にしてください。');
+  expect(saved(w).shifts).toHaveLength(6);
+  set('#shiftStart', '9:05');
+  set('#shiftEnd', '13:52');
+  expect(txt(w, '#shiftPreview')).toBe('4時間47分 → +¥5,700');
+  submit('#shiftForm');
+  expect(saved(w).shifts.at(-1)).toMatchObject({ minutes: 287, wage: 1200, earned: 5700 });
+  expect([$('#shiftStart').value, $('#shiftEnd').value]).toEqual(['', '']);
+});

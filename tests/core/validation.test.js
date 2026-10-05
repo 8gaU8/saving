@@ -1,5 +1,5 @@
 import { test, expect } from 'vitest';
-import { readNum, goalError, formMinutes } from '../../src/core/validation.js';
+import { readNum, goalError, formMinutes, formTimes } from '../../src/core/validation.js';
 import { dayNum } from '../../src/core/dates.js';
 
 const TODAY = dayNum(2026, 10, 3);
@@ -23,6 +23,22 @@ test.each([
   ['0.004', '0', { error: '勤務時間を入力してください。' }],
 ])('formMinutes(%j, %j)', (h, m, out) => {
   expect(formMinutes(h, m)).toEqual(out);
+});
+
+test.each([
+  ['', '', null],
+  ['9:00', '17:30', { min: 510 }],
+  ['13:52', '14:07', { min: 15 }],
+  ['00:00', '23:59', { min: 1439 }],
+  ['9:00', '', { error: '開始・終了時刻は 13:52 のように入力してください。' }],
+  ['9', '17:00', { error: '開始・終了時刻は 13:52 のように入力してください。' }],
+  ['9:60', '17:00', { error: '開始・終了時刻は 13:52 のように入力してください。' }],
+  ['24:00', '17:00', { error: '開始・終了時刻は 13:52 のように入力してください。' }],
+  ['9：00', '17:00', { error: '開始・終了時刻は 13:52 のように入力してください。' }],
+  ['17:00', '17:00', { error: '終了時刻は開始時刻より後にしてください。' }],
+  ['22:00', '02:00', { error: '終了時刻は開始時刻より後にしてください。' }],
+])('formTimes(%j, %j)', (s, e, out) => {
+  expect(formTimes(s, e)).toEqual(out);
 });
 
 const ok = { target: 300000, deadline: '2027-03-31', wage: 1200, closing: 31, payDay: 25 };

@@ -90,6 +90,7 @@ function renderNeed() {
   const subMonth = (p) =>
     p.days > 0 ? `あと${p.days}日（${fmtDay(p.end)}まで）` : '今月の残り日数はありません';
   el.innerHTML =
+    `<div class="need-hero"><p class="need-name">1日あたり</p>${numBlock(c.perDay)}<p class="need-sub">毎日 約${fmtHM(Math.ceil(c.perDay * 60))}（あと${c.daysLeft}日）</p></div>` +
     `<div class="need-hero"><p class="need-name">今週</p>${numBlock(c.week.hours)}<p class="need-sub">${sub(c.week)}</p></div>` +
     '<div class="need-pair">' +
     `<div><p class="need-name">今月</p>${numBlock(c.month.hours)}<p class="need-sub">${subMonth(c.month)}</p></div>` +
