@@ -29,7 +29,10 @@ export function init() {
     const payDay = readNum($('#gPayDay').value);
     const changed = deadline !== state.goal.deadline;
     const ge = goalError({ target, deadline, wage, closing, payDay }, changed, todayDay());
-    if (ge) { $('#goalError').textContent = ge; return; }
+    if (ge) {
+      $('#goalError').textContent = ge;
+      return;
+    }
     state.goal.target = Math.round(target);
     state.goal.deadline = deadline;
     state.goal.hourlyWage = wage;
@@ -44,15 +47,19 @@ export function init() {
   $('#resetBtn').addEventListener('click', async () => {
     const ok = await confirmDialog({
       title: 'すべてのデータを削除しますか？',
-      message: 'この端末に保存された目標と勤務履歴を消します。元に戻せません。必要な場合は先にエクスポートしてください。',
-      ok: '削除する', danger: true
+      message:
+        'この端末に保存された目標と勤務履歴を消します。元に戻せません。必要な場合は先にエクスポートしてください。',
+      ok: '削除する',
+      danger: true,
     });
     if (!ok) return;
     removeSaved();
     setState(null);
     dlgSettings.close();
     resetShiftForm();
-    ['#sCurrent', '#sTarget', '#sWage', '#sDeadline'].forEach((s) => { $(s).value = ''; });
+    ['#sCurrent', '#sTarget', '#sWage', '#sDeadline'].forEach((s) => {
+      $(s).value = '';
+    });
     $('#sClosing').value = DEFAULT_CLOSING;
     $('#sPayDay').value = DEFAULT_PAYDAY;
     render();

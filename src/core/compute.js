@@ -18,11 +18,16 @@ export function compute(state, t) {
   const lastWork = lastCountedWorkDay(deadline, g); // これ以降の勤務は目標日に間に合わない
   const daysLeft = lastWork === null ? 0 : lastWork - start + 1;
   const out = {
-    savings, remaining, remainingHours, daysLeft, deadline, lastWork,
+    savings,
+    remaining,
+    remainingHours,
+    daysLeft,
+    deadline,
+    lastWork,
     lateEarned: mo.pending - mo.pendingCounted,
     achieved: remaining <= 0,
     cashReached: savings >= g.target,
-    expired: remaining > 0 && daysLeft <= 0
+    expired: remaining > 0 && daysLeft <= 0,
   };
   if (out.achieved || out.expired) return out;
 
@@ -30,7 +35,7 @@ export function compute(state, t) {
   const period = (endDay) => {
     const end = Math.min(endDay, lastWork);
     const days = Math.max(0, end - start + 1);
-    return { end, days, hours: remainingHours * days / daysLeft };
+    return { end, days, hours: (remainingHours * days) / daysLeft };
   };
   out.week = period(weekEnd);
   out.month = period(monthEndDay(t.y, t.m));

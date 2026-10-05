@@ -9,7 +9,15 @@ const html = readFileSync(new URL('../../index.html', import.meta.url), 'utf8')
   .replace(/<script type="module"[^>]*><\/script>/, '');
 
 export const FIXED = new Date(2026, 9, 3, 12, 0, 0); // 2026-10-03 (土)
-const GLOBALS = ['window', 'document', 'localStorage', 'navigator', 'HTMLDialogElement', 'Image', 'Event'];
+const GLOBALS = [
+  'window',
+  'document',
+  'localStorage',
+  'navigator',
+  'HTMLDialogElement',
+  'Image',
+  'Event',
+];
 
 afterEach(() => {
   vi.useRealTimers();
@@ -20,12 +28,22 @@ afterEach(() => {
 export async function boot(state, now = FIXED, before) {
   vi.useFakeTimers({ now, toFake: ['Date'] });
   const w = new JSDOM(html, { url: 'https://x.example/', pretendToBeVisual: true }).window;
-  w.HTMLDialogElement.prototype.showModal = function () { this.setAttribute('open', ''); };
-  w.HTMLDialogElement.prototype.close = function () { if (!this.hasAttribute('open')) return; this.removeAttribute('open'); this.dispatchEvent(new w.Event('close')); };
+  w.HTMLDialogElement.prototype.showModal = function () {
+    this.setAttribute('open', '');
+  };
+  w.HTMLDialogElement.prototype.close = function () {
+    if (!this.hasAttribute('open')) return;
+    this.removeAttribute('open');
+    this.dispatchEvent(new w.Event('close'));
+  };
   w.HTMLElement.prototype.scrollIntoView = () => {};
   w.scrollTo = () => {};
   w.matchMedia = () => ({ matches: false });
-  if (state) w.localStorage.setItem('savings-pace:v1', typeof state === 'string' ? state : JSON.stringify(state));
+  if (state)
+    w.localStorage.setItem(
+      'savings-pace:v1',
+      typeof state === 'string' ? state : JSON.stringify(state),
+    );
   if (before) before(w);
   for (const k of GLOBALS) vi.stubGlobal(k, w[k]);
   vi.resetModules();
@@ -33,4 +51,5 @@ export async function boot(state, now = FIXED, before) {
   return w;
 }
 
-export const txt = (w, sel) => w.document.querySelector(sel).textContent.replace(/\s+/g, ' ').trim();
+export const txt = (w, sel) =>
+  w.document.querySelector(sel).textContent.replace(/\s+/g, ' ').trim();

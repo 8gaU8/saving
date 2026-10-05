@@ -20,7 +20,9 @@ test('検証で落ちる状態も :broken に退避', async () => {
 
 test('書き込めない環境ではプローブで警告バナーを出す', async () => {
   const w = await boot(state, undefined, (w) => {
-    w.Storage.prototype.setItem = () => { throw new Error('QuotaExceededError'); };
+    w.Storage.prototype.setItem = () => {
+      throw new Error('QuotaExceededError');
+    };
   });
   expect(w.document.querySelector('#storageWarn').hidden).toBe(false);
   expect(w.document.querySelector('#mainView').hidden).toBe(false); // 読み込みはできる
@@ -28,7 +30,9 @@ test('書き込めない環境ではプローブで警告バナーを出す', as
 
 test('読み込めない環境（getItem 例外）は初回設定 + 警告', async () => {
   const w = await boot(null, undefined, (w) => {
-    w.Storage.prototype.getItem = () => { throw new Error('SecurityError'); };
+    w.Storage.prototype.getItem = () => {
+      throw new Error('SecurityError');
+    };
   });
   expect(w.document.querySelector('#setupView').hidden).toBe(false);
   expect(w.document.querySelector('#storageWarn').hidden).toBe(false);
@@ -38,7 +42,10 @@ test('保存に成功すると警告が消える', async () => {
   let fail = true;
   const w = await boot(state, undefined, (w) => {
     const orig = w.Storage.prototype.setItem;
-    w.Storage.prototype.setItem = function (...a) { if (fail) throw new Error('x'); return orig.apply(this, a); };
+    w.Storage.prototype.setItem = function (...a) {
+      if (fail) throw new Error('x');
+      return orig.apply(this, a);
+    };
   });
   expect(w.document.querySelector('#storageWarn').hidden).toBe(false);
   fail = false;
@@ -51,7 +58,10 @@ test('保存に成功すると警告が消える', async () => {
 
 test('他タブの変更（storage イベント）で再読込・再描画', async () => {
   const w = await boot(state);
-  w.localStorage.setItem(KEY, JSON.stringify({ ...state, goal: { ...state.goal, target: 400000 } }));
+  w.localStorage.setItem(
+    KEY,
+    JSON.stringify({ ...state, goal: { ...state.goal, target: 400000 } }),
+  );
   w.dispatchEvent(new w.StorageEvent('storage', { key: 'other-key' }));
   expect(txt(w, '#barTarget')).toBe('目標 ¥300,000');
   w.dispatchEvent(new w.StorageEvent('storage', { key: KEY }));

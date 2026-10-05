@@ -14,14 +14,27 @@ import * as qrExport from './ui/qrExport.js';
 import * as qrImport from './ui/qrImport.js';
 
 /* ---------- 起動 ---------- */
-for (const m of [dialogs, shiftForm, historyUI, savingsDialog, setup, settings, jsonIO, qrExport, qrImport]) m.init();
+for (const m of [
+  dialogs,
+  shiftForm,
+  historyUI,
+  savingsDialog,
+  setup,
+  settings,
+  jsonIO,
+  qrExport,
+  qrImport,
+])
+  m.init();
 probe();
 reload();
 shiftForm.resetShiftForm();
 render();
 
 // 日付をまたいで開きっぱなしでも、戻ってきたときに計算し直す
-document.addEventListener('visibilitychange', () => { if (!document.hidden) render(); });
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden) render();
+});
 // 別タブでの変更を反映する
 watchOtherTabs(() => {
   ui.editingId = null;

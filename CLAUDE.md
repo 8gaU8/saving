@@ -6,8 +6,8 @@
 
 ## 絶対に守ること
 
-- **挙動を変えない**リファクタリング。機能追加・文言変更・デザイン変更をしない
-- 次は**変更禁止**: localStorage キー `savings-pace:v1`、状態スキーマ（schemaVersion 1）、JSON エクスポート形式、QR 形式（`SP1.<sid>.<n>.<total>.<data>`）、要素 ID、日本語の文言
+- **挙動を変えない**リファクタリングが基本。機能追加・文言変更・デザイン変更は、ユーザーが明示的に許可した場合に限り行う
+- 次は**変更禁止**: localStorage キー `savings-pace:v1`、状態スキーマ（schemaVersion 1）、JSON エクスポート形式、QR 形式（`SP1.<sid>.<n>.<total>.<data>`）、要素 ID、日本語の文言（文言は上記の明示的な許可がある場合を除く）
 - 配備 URL を変えない（変えると既存ユーザーの localStorage が見えなくなる）
 - バグらしきものを見つけても**黙って直さない**。`handoff/HANDOFF.md` §10 の追記欄に「現象 / 場所 / 影響 / 提案」を書いて報告する
 - フレームワーク（React/Vue 等）と TypeScript は導入しない。素の JS（ES Modules）。型は JSDoc まで

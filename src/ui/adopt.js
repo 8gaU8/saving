@@ -12,7 +12,8 @@ export async function adoptState(next) {
     const ok = await confirmDialog({
       title: 'データを置き換えますか？',
       message: `いまのデータは消え、読み込んだ内容（勤務記録${next.shifts.length}件、目標金額${yen(next.goal.target)}）に置き換わります。`,
-      ok: '置き換える', danger: true
+      ok: '置き換える',
+      danger: true,
     });
     if (!ok) return false;
   }

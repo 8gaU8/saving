@@ -20,12 +20,17 @@ export function init() {
     e.preventDefault();
     const raw = $('#svInput').value.trim();
     const v = raw === '' ? NaN : Number(raw);
-    if (!(v >= 0)) { $('#svError').textContent = '0以上の数字で入力してください。'; return; }
+    if (!(v >= 0)) {
+      $('#svError').textContent = '0以上の数字で入力してください。';
+      return;
+    }
     const next = Math.round(v);
     const delta = next - Math.round(savingsNow(state));
     dlgSavings.close();
     if (delta === 0) return;
     state.adjustments.push({ id: newId(), date: todayISO(), delta, at: new Date().toISOString() });
-    save(); render(); toast('貯金額を修正しました');
+    save();
+    render();
+    toast('貯金額を修正しました');
   });
 }

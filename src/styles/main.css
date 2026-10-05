@@ -1,12 +1,15 @@
-@import './tokens.css';
-@import './base.css';
-@import './buttons.css';
-@import './layout.css';
-@import './history.css';
-@import './setup.css';
-@import './dialogs.css';
-@import './qr.css';
+@import "./tokens.css";
+@import "./base.css";
+@import "./buttons.css";
+@import "./layout.css";
+@import "./history.css";
+@import "./setup.css";
+@import "./dialogs.css";
+@import "./qr.css";
 
 @media (prefers-reduced-motion: reduce) {
-  * { transition: none !important; animation: none !important; }
+  * {
+    transition: none !important;
+    animation: none !important;
+  }
 }
